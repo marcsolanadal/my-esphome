@@ -1,0 +1,388 @@
+
+substitutions:
+  device_name: "persiana-marc-nord"
+  friendly_name: "persiana-marc-nord"
+  output_name_1: "Output 1"
+  output_name_2: "Output 2"
+  input_name_1: "Input 1"
+  input_name_2: "Input 2"
+
+  # Relay trip limits
+  max_power: "3600.0"
+  max_temp: "80.0"
+
+  # current-based cover parameters
+  open_duration: 54s
+  close_duration: 53s
+  max_duration: 70s
+  start_sensing_delay: 1.5s
+  moving_current_threshold: "0.2"
+  obstacle_current_threshold: "0.8"
+
+  # ESPHome API used by Home Assistant, etc
+  # If you go to this page it generates one for you automatically!
+  # https://esphome.io/components/api.html#configuration-variables
+  api_key: "+BqcFnZqyRowkeZemjb7eq9weLtNYvgW8E/GF5rJXvY="
+
+  ap_password: "dREXJjbSF4tp" # Fallback WiFi Access Point password
+  ota_password: "aecef1abeebe74eb7c48690e69ba7f2d" # Password used to remotely flash firmware
+
+globals:
+  
+  - id: shutter_open_time
+    type: std::string
+    restore_value: yes
+    initial_value: '"07:00"'  # Default open time
+  
+  - id: shutter_close_time
+    type: std::string
+    restore_value: yes
+    initial_value: '"19:00"'  # Default close time
+
+  - id: shutter_opened_today
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: shutter_closed_today
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: input_1_state
+    type: int
+    restore_value: yes
+    initial_value: '0'
+
+  - id: current_threshold
+    type: float
+    initial_value: '100'  # Minimum current threshold, adjust based on testing
+
+text_sensor:
+
+  - platform: template
+    name: "Shutter Open Time"
+    update_interval: 10s
+    lambda: |-
+      return id(shutter_open_time);
+
+  - platform: template
+    name: "Shutter Close Time"
+    update_interval: 10s
+    lambda: |-
+      return id(shutter_close_time);
+   
+# Configure time component to get the current time
+time:
+  - platform: sntp
+    id: sntp_time
+    timezone: "Europe/Madrid"
+    servers:
+     - 148.251.5.46
+     - 193.149.0.217
+     - 185.198.109.227
+
+# For PCB v0.1.9 with dual core ESP32
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32doit-devkit-v1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+mqtt:
+  broker: !secret mqtt_broker_ip
+  username: !secret mqtt_broker_username
+  password: !secret mqtt_broker_password
+  client_id: ${device_name}
+  on_message:
+
+    - topic: "shutter/open"
+      qos: 0
+      then:
+        - switch.toggle: relay_1
+
+    - topic: "shutter/close"
+      qos: 0
+      then:
+        - switch.toggle: relay_2
+
+    # MQTT topic to set the open time
+    - topic: "shutter/set_open_time"
+      qos: 0
+      then:
+        - lambda: |-
+            id(shutter_open_time) = x.c_str(); 
+
+    # MQTT topic to set the close time
+    - topic: "shutter/set_close_time"
+      qos: 0
+      then:
+        - lambda: |-
+            id(shutter_close_time) = x.c_str(); 
+
+    # MQTT topic to return the stored open and close times
+    - topic: "shutter/info"
+      qos: 0
+      then:
+        - mqtt.publish:
+            topic: "shutter/status"
+            payload: !lambda |-
+              auto current_time = id(sntp_time).now();
+              char buffer[6];
+              sprintf(buffer, "%02d:%02d", current_time.hour, current_time.minute);
+              std::string current_time_str = buffer;
+
+              char payload[60];
+              snprintf(payload, sizeof(payload), "Open Time: %s\nClose Time: %s\nCurrent Time: %s\n", 
+                       id(shutter_open_time).c_str(), 
+                       id(shutter_close_time).c_str(),
+                       current_time_str.c_str());
+              return payload;
+
+# Automation to check the current time and trigger shutters open/close
+interval:
+  - interval: 1min
+    then:
+      - lambda: |-
+          auto current_time = id(sntp_time).now();
+          char buffer[6];
+          sprintf(buffer, "%02d:%02d", current_time.hour, current_time.minute);
+          std::string current_time_str = buffer;
+
+          // Check if it's time to open the shutters
+          if (current_time_str == id(shutter_open_time) && !id(shutter_opened_today)) {
+            id(relay_1).turn_on();
+            id(shutter_opened_today) = true;  
+          }
+
+          // Check if it's time to close the shutters
+          if (current_time_str == id(shutter_close_time)) {
+            id(relay_2).turn_on(); 
+            id(shutter_closed_today) = true;
+          }
+      
+       # Reset open/close flags at midnight for the next day
+      - lambda: |-
+          auto current_time = id(sntp_time).now();
+          if (current_time.hour == 0 && current_time.minute == 0) {
+            id(shutter_opened_today) = false;
+            id(shutter_closed_today) = false;
+          }
+
+# If you enable MQTT and you do not use the “native API” for Home Assistant, you must remove 
+# the api: line from your ESPHome configuration, otherwise the ESP will reboot every 15 minutes 
+# because no client connected to the native API.
+
+# Enable Home Assistant API
+# api:
+#   encryption:
+#     key: ${api_key}
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Optional manual IP
+  manual_ip:
+    static_ip: 10.0.20.25 # TODO: I don't like to have the IP specified in the device
+    gateway: 10.0.20.1
+    subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${device_name}
+    password: ${ap_password}
+
+captive_portal:
+
+web_server:
+  port: 80
+  version: 3
+  include_internal: true
+  auth:
+    username: !secret web_server_user
+    password: !secret web_server_password
+  local: true
+
+i2c:
+  sda: GPIO26
+  scl: GPIO25
+
+# Internal Shelly Switch Outputs
+switch:
+  - platform: gpio
+    id: "relay_1"
+    name: "${output_name_1}"
+    pin: GPIO13
+    internal: true
+    restore_mode: ALWAYS_OFF
+    interlock: [relay_2]
+    interlock_wait_time: 200ms
+    
+  - platform: gpio
+    id: "relay_2"
+    name: "${output_name_2}"
+    pin: GPIO12
+    internal: true
+    restore_mode: ALWAYS_OFF
+    interlock: [relay_1]
+    interlock_wait_time: 200ms
+
+button:
+  - platform: restart
+    id: "restart_device"
+    name: "${device_name} Restart"
+    entity_category: 'diagnostic'
+
+binary_sensor:
+  
+  # Button on device
+  - platform: gpio
+    name: "${device_name} Button"
+    pin:
+      number: GPIO4
+      inverted: yes
+      mode:
+        input: true
+        pullup: true
+    on_press:
+      then:
+        - button.press: "restart_device"
+    filters:
+      - delayed_on_off: 5ms
+    internal: true
+
+  # Input 1 with custom toggle sequence using a switch statement and direct relay control
+  - platform: gpio
+    name: "${input_name_1}"
+    id: "input_1"
+    pin: GPIO5
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - mqtt.publish:
+              topic: "per/info"
+              payload: "Something happened!"
+        - lambda: |-
+            switch (id(input_1_state)) {
+              case 0:  // State: Relay 1 ON (up)
+                id(relay_1).turn_on();
+                id(input_1_state) = 1;
+                break;
+
+              case 1:  // State: Relay 1 OFF
+                id(relay_1).turn_off();
+                id(input_1_state) = 2;
+                break;
+
+              case 2:  // State: Relay 2 ON (down)
+                id(relay_2).turn_on();
+                id(input_1_state) = 3;
+                break;
+
+              case 3:  // State: Relay 2 OFF
+                id(relay_2).turn_off();
+                id(input_1_state) = 0;
+                break;
+              
+              default:
+                // Handle unexpected state
+                id(input_1_state) = 0;  // Reset to initial state
+                break;
+            }
+    internal: true
+  
+  # Input 2
+  - platform: gpio
+    id: "input_2"
+    name: "${input_name_2}"
+    pin: GPIO18
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - switch.toggle: relay_2
+    internal: true
+    
+sensor:
+  # Power Sensor
+  - platform: ade7953_i2c
+    irq_pin: GPIO27
+    voltage:
+      name: "${device_name} Voltage"
+      entity_category: 'diagnostic'
+
+    current_a:
+      name: "${output_name_2} Current"
+      entity_category: 'diagnostic'
+    active_power_a:
+      name: "${output_name_2} Power"
+      id: power_channel_2
+      entity_category: 'diagnostic'
+      filters: # TODO: Use intervals instead
+        - multiply: -1
+        - lambda: |-
+            if (id(input_1_state) == 1) {  // Only check if moving up
+              if (x < id(current_threshold)) {
+                // Roller has reached fully opened (top)
+                id(input_1_state) = 2;  // Set to stopped, next down
+              }
+            }
+            return x;
+
+    current_b:
+      name: "${output_name_1} Current"
+      entity_category: 'diagnostic'
+    active_power_b:
+      name: "${output_name_1} Power"
+      id: power_channel_1
+      entity_category: 'diagnostic'
+      filters:
+        - lambda: |-
+            if (id(input_1_state) == 3) {  // Only check if moving down
+              if (x < id(current_threshold)) {
+                // Roller has reached fully closed (bottom)
+                id(input_1_state) = 0;  // Set to stopped, next up
+              }
+            }
+            return x;
+
+    update_interval: 10s
+
+  # Internal NTC Temperature sensor
+  - platform: ntc
+    sensor: temp_resistance_reading
+    name: "${device_name} Temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    icon: "mdi:thermometer"
+    entity_category: 'diagnostic'
+    calibration:
+      b_constant: 3350
+      reference_resistance: 4.7kOhm
+      reference_temperature: 298.15K
+
+  # Required for NTC sensor
+  - platform: resistance
+    id: temp_resistance_reading
+    sensor: temp_analog_reading
+    configuration: DOWNSTREAM
+    resistor: 5.6kOhm
+
+  # Required for NTC sensor
+  - platform: adc
+    id: temp_analog_reading
+    pin: GPIO35
+    attenuation: 12db
+    update_interval: 10s
