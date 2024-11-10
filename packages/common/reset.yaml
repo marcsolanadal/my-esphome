@@ -1,0 +1,21 @@
+button:
+  - platform: restart
+    id: "restart_device"
+    name: "${device_name} Restart"
+    entity_category: 'diagnostic'
+
+binary_sensor:
+  - platform: gpio
+    name: "${device_name} Button"
+    pin:
+      number: GPIO4
+      inverted: yes
+      mode:
+        input: true
+        pullup: true
+    on_press:
+      then:
+        - button.press: "restart_device"
+    filters:
+      - delayed_on_off: 5ms
+    internal: true

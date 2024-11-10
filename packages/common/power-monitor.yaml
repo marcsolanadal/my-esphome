@@ -1,0 +1,26 @@
+sensor:
+
+  # Power Sensor
+  - platform: ade7953_i2c
+    irq_pin: GPIO27
+    voltage:
+      name: "${device_name} Voltage"
+      entity_category: 'diagnostic'
+
+    current_a:
+      name: "${output_name_2} Current"
+      entity_category: 'diagnostic'
+    active_power_a:
+      name: "${output_name_2} Power"
+      id: power_channel_2
+      entity_category: 'diagnostic'
+
+    current_b:
+      name: "${output_name_1} Current"
+      entity_category: 'diagnostic'
+    active_power_b:
+      name: "${output_name_1} Power"
+      id: power_channel_1
+      entity_category: 'diagnostic'
+
+    update_interval: 10s

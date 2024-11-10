@@ -1,0 +1,19 @@
+# For PCB v0.1.9 with dual core ESP32
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32doit-devkit-v1
+  framework:
+    type: arduino
+
+logger:
+
+i2c:
+  sda: GPIO26
+  scl: GPIO25
+
+ota:
+  - platform: esphome
+    password: ${ota_password}

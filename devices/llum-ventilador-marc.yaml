@@ -6,78 +6,20 @@ substitutions:
   input_name_1: "Input 1"
   input_name_2: "Input 2"
 
-  # ESPHome API used by Home Assistant, etc
-  # If you go to this page it generates one for you automatically!
-  # https://esphome.io/components/api.html#configuration-variables
-  api_key: "ZrR4uhf4T3wDCORwIByhaMleNJ/pAD8faKeRY+9c8Vc="
-
   ota_password: "9b7972985d848049ab7cae6a7c871c7e" # Password used to remotely flash firmware
 
-# For PCB v0.1.9 with dual core ESP32
-esphome:
-  name: ${device_name}
-  friendly_name: ${friendly_name}
+packages:
 
-esp32:
-  board: esp32doit-devkit-v1
-  framework:
-    type: arduino
+  common: !include 
+    file: packages/common/device-base.yaml
 
-logger:
+  wifi: !include 
+    file: packages/common/wifi.yaml
+    var:
+      static_ip: 10.0.20.31
 
-mqtt:
-  broker: !secret mqtt_broker_ip
-  username: !secret mqtt_broker_username
-  password: !secret mqtt_broker_password
-  client_id: ${device_name}
-  on_message:
-    topic: "llum/toggle"
-    qos: 0
-    then:
-      - switch.toggle: relay_1
-
-# If you enable MQTT and you do not use the “native API” for Home Assistant, you must remove 
-# the api: line from your ESPHome configuration, otherwise the ESP will reboot every 15 minutes 
-# because no client connected to the native API.
-
-# Enable Home Assistant API
-# api:
-#   encryption:
-#     key: ${api_key}
-
-ota:
-  - platform: esphome
-    password: ${ota_password}
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-
-  # Optional manual IP
-  manual_ip:
-    static_ip: 10.0.20.31 # TODO: I don't like to have the IP specified in the device
-    gateway: 10.0.20.1
-    subnet: 255.255.255.0
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: ${device_name}
-    password: !secret ap_password
-
-captive_portal:
-
-web_server:
-  port: 80
-  version: 3
-  include_internal: true
-  auth:
-    username: !secret web_server_user
-    password: !secret web_server_password
-  local: true
-
-i2c:
-  sda: GPIO26
-  scl: GPIO25
+  web-server: !include 
+    file: packages/common/web-server.yaml
 
 output:
   - platform: gpio
@@ -137,9 +79,6 @@ binary_sensor:
         then:
           - logger.log: "${devicename} Button - TAP"
           - switch.toggle: relay_1
-          - mqtt.publish:
-              topic: "llum/info"
-              payload: "Something happened!"
 
       # Hold (long press) - turn on relay_2, then off after 30 seconds
       - timing:
