@@ -14,6 +14,3 @@ i2c:
   sda: GPIO26
   scl: GPIO25
 
-ota:
-  - platform: esphome
-    password: ${ota_password}

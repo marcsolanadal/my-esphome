@@ -1,0 +1,84 @@
+substitutions:
+  device_name: "llum-ventilador-marc"
+  friendly_name: "llum-ventilador-marc"
+  output_name_1: "Output 1"
+  output_name_2: "Output 2"
+  input_name_1: "Input 1"
+  input_name_2: "Input 2"
+
+packages:
+
+  device-base: !include packages/common/device-base.yaml
+  reset: !include packages/common/reset.yaml
+  time: !include packages/common/time.yaml
+  web-server: !include packages/common/web-server.yaml
+  temp-sensor: !include packages/common/temp-sensor.yaml
+  power-monitor: !include packages/common/power-monitor.yaml
+  mqtt: !include packages/common/mqtt.yaml
+
+  wifi: !include 
+    file: packages/common/wifi.yaml
+    vars:
+      static_ip: 10.0.20.31
+
+output:
+  - platform: gpio
+    id: "relay_output_1"
+    pin: GPIO12
+  - platform: gpio
+    id: "relay_output_2"
+    pin: GPIO13
+
+switch:
+  - platform: output
+    id: "relay_1"
+    name: "${output_name_1}"
+    output: "relay_output_1"
+  - platform: output
+    id: "relay_2"
+    name: "${output_name_2}"
+    output: "relay_output_2"
+
+binary_sensor:
+
+  # Input 1
+  - platform: gpio
+    name: "${input_name_1}"
+    id: "input_1"
+    pin: GPIO5
+    filters:
+      - delayed_on_off: 50ms
+    on_multi_click:
+
+      # Single click (short press) - toggle relay_1
+      - timing:
+          - ON for at most 1s
+        then:
+          - logger.log: "${devicename} Button - TAP"
+          - switch.toggle: relay_1
+
+      # Hold (long press) - turn on relay_2, then off after 30 seconds
+      - timing:
+          - ON for at least 1s
+        then:
+          - logger.log: "${devicename} Button - HOLD"
+          - switch.toggle: relay_2
+          - if:
+              condition:
+                switch.is_on: relay_2
+              then:
+                - delay: 20min
+                - switch.turn_off: relay_2
+    internal: true
+  
+  # Input 2
+  - platform: gpio
+    id: "input_2"
+    name: "${input_name_2}"
+    pin: GPIO18
+    filters:
+      - delayed_on_off: 50ms
+    on_press:
+      then:
+        - switch.toggle: relay_2
+    internal: true

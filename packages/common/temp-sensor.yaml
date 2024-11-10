@@ -1,3 +1,5 @@
+sensor:
+
   # Internal NTC Temperature sensor
   - platform: ntc
     sensor: temp_resistance_reading
