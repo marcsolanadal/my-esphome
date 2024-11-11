@@ -19,7 +19,7 @@ packages:
 
   wifi: !include 
     file: packages/common/wifi.yaml
-    var:
+    vars:
       static_ip: 10.0.20.25
 
   shutter: !include
