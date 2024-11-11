@@ -16,6 +16,7 @@ packages:
   temp-sensor: !include packages/common/temp-sensor.yaml
   power-monitor: !include packages/common/power-monitor.yaml
   mqtt: !include packages/common/mqtt.yaml
+  sun: !include packages/common/sun.yaml
 
   wifi: !include 
     file: packages/common/wifi.yaml

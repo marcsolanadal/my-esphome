@@ -1,0 +1,21 @@
+sun:
+
+  # Cardona's Coordinates
+  latitude: 41.913607
+  longitude: 1.6797134
+
+# sensor:
+#   - platform: sun
+#     name: Sun Elevation
+#     type: elevation
+#   - platform: sun
+#     name: Sun Azimuth
+#     type: azimuth
+
+text_sensor:
+  - platform: sun
+    name: Sun Next Sunrise
+    type: sunrise
+  - platform: sun
+    name: Sun Next Sunset
+    type: sunset
