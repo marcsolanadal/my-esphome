@@ -1,0 +1,24 @@
+
+packages:
+
+  shelly-plus-2: !include devices/shelly-plus-2.yaml
+
+  logger: !include packages/common/logger.yaml
+  
+  reset: !include packages/common/reset.yaml
+  
+  time: !include packages/common/time.yaml
+  
+  web-server: !include packages/common/web-server.yaml
+  
+  mqtt: !include packages/common/mqtt.yaml
+  
+  sun: !include packages/common/sun.yaml
+
+  wifi: !include 
+    file: packages/common/wifi.yaml
+    vars:
+      static_ip: ${static_ip}
+
+  shutter: !include
+    file: packages/shutter.yaml
