@@ -20,6 +20,11 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  - id: input_1_state
+    type: int
+    restore_value: yes
+    initial_value: '0'
+
 text_sensor:
 
   - platform: template
