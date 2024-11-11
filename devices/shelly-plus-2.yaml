@@ -1,0 +1,84 @@
+# For PCB v0.1.9 with dual core ESP32
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32doit-devkit-v1
+  framework:
+    type: arduino
+
+i2c:
+  sda: GPIO26
+  scl: GPIO25
+
+sensor:
+  # Power Sensor
+  - platform: ade7953_i2c
+    voltage:
+      name: "${device_name} Voltage"
+      entity_category: 'diagnostic'
+
+    current_a:
+      name: "${output_name_2} Current"
+      entity_category: 'diagnostic'
+    active_power_a:
+      name: "${output_name_2} Power"
+      id: power_channel_2
+      entity_category: 'diagnostic'
+
+    current_b:
+      name: "${output_name_1} Current"
+      entity_category: 'diagnostic'
+    active_power_b:
+      name: "${output_name_1} Power"
+      id: power_channel_1
+      entity_category: 'diagnostic'
+
+    update_interval: 10s
+
+  # Internal NTC Temperature sensor
+  - platform: ntc
+    sensor: temp_resistance_reading
+    name: "${device_name} Temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    icon: "mdi:thermometer"
+    entity_category: 'diagnostic'
+    calibration:
+      b_constant: 3350
+      reference_resistance: 4.7kOhm
+      reference_temperature: 298.15K
+
+  # Required for NTC sensor
+  - platform: resistance
+    id: temp_resistance_reading
+    sensor: temp_analog_reading
+    configuration: DOWNSTREAM
+    resistor: 5.6kOhm
+
+  # Required for NTC sensor
+  - platform: adc
+    id: temp_analog_reading
+    pin: GPIO35
+    attenuation: 12db
+    update_interval: 10s
+
+# Reset Button
+binary_sensor:
+  - platform: gpio
+    name: "${device_name} Button"
+    pin:
+      number: GPIO4
+      inverted: yes
+      mode:
+        input: true
+        pullup: true
+    on_press:
+      then:
+        - button.press: "restart_device"
+    filters:
+      - delayed_on_off: 5ms
+    internal: true
+
+

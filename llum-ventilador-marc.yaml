@@ -8,6 +8,7 @@ substitutions:
 
 packages:
 
+  shelly-plus-2: !include devices/shelly-plus-2.yaml
   device-base: !include packages/common/device-base.yaml
   reset: !include packages/common/reset.yaml
   time: !include packages/common/time.yaml
