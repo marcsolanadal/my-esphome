@@ -1,7 +1,7 @@
 substitutions:
   device_name: "llum-turbi"
   friendly_name: "llum-turbi"
-  static_ip: "10.0.20.40"
+  static_ip: "10.0.20.32"
   topic_prefix: "turbi_light"
   delay_after_sunset: "3h"
 
