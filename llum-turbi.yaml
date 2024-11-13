@@ -1,0 +1,73 @@
+substitutions:
+  device_name: "llum-turbi"
+  friendly_name: "llum-turbi"
+  static_ip: "10.0.20.40"
+
+globals:
+  - id: extend_after_sunset_enabled
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+packages:
+  shelly-plus-1: !include 
+    file: hardware/shelly-plus-1.yaml
+    vars:
+      device_name: ${device_name}
+
+  wifi: !include 
+    file: common/wifi.yaml
+    vars:
+      static_ip: ${static_ip}
+
+  logger: !include common/logger.yaml
+  reset: !include common/reset.yaml
+  time: !include common/time.yaml
+  web-server: !include common/web-server.yaml
+  mqtt: !include common/mqtt.yaml
+  sun: !include common/sun.yaml
+
+mqtt:
+  on_message:
+    - topic: turbi_light/extend_after_sunset
+      then:
+        - lambda: |-
+            if (x == "ON") {
+              id(extend_after_sunset_enabled) = true;
+            } else if (x == "OFF") {
+              id(extend_after_sunset_enabled) = false;
+            }
+
+switch:
+  - platform: output
+    id: "relay"
+    name: "${device_name} Relay"
+    output: "relay_output"
+
+binary_sensor:
+  - platform: gpio
+    name: "${device_name} Switch"
+    pin: GPIO4
+    on_press:
+      then:
+        - switch.toggle: "relay"
+    filters:
+      - delayed_on_off: 50ms
+
+sun:
+  on_sunset:
+    - if:
+        condition:
+          - lambda: return id(extend_after_sunset_enabled);
+        then:
+          - switch.turn_on: relay
+          - delay: 3h  
+          - switch.turn_off: relay
+
+time:
+  - platform: sntp
+    on_time:
+      - hours: 23
+        minutes: 00
+        then:
+          - switch.turn_off: relay
