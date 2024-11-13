@@ -9,7 +9,7 @@ globals:
   - id: extend_after_sunset_enabled
     type: bool
     restore_value: yes
-    initial_value: "true"
+    initial_value: "false"
 
 packages:
   shelly-plus-1: !include 
@@ -28,6 +28,16 @@ packages:
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
   sun: !include common/sun.yaml
+
+text_sensor:
+  - platform: template
+    name: "Extend after sunset enabled?"
+    lambda: |-
+      if (id(extend_after_sunset_enabled)) {
+        return {"ON"};
+      } else {
+        return {"OFF"};
+      }
 
 mqtt:
   on_message:
