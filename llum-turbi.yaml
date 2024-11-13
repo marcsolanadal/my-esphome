@@ -2,6 +2,8 @@ substitutions:
   device_name: "llum-turbi"
   friendly_name: "llum-turbi"
   static_ip: "10.0.20.40"
+  topic_prefix: "turbi_light"
+  delay_after_sunset: "3h"
 
 globals:
   - id: extend_after_sunset_enabled
@@ -29,7 +31,7 @@ packages:
 
 mqtt:
   on_message:
-    - topic: turbi_light/extend_after_sunset
+    - topic: ${topic_prefix}/extend_after_sunset
       then:
         - lambda: |-
             if (x == "ON") {
@@ -61,7 +63,7 @@ sun:
           - lambda: return id(extend_after_sunset_enabled);
         then:
           - switch.turn_on: relay
-          - delay: 3h  
+          - delay: ${delay_after_sunset}
           - switch.turn_off: relay
 
 time:
