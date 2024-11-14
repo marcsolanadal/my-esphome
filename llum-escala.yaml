@@ -31,20 +31,25 @@ binary_sensor:
     name: "${device_name} Switch"
     pin: GPIO4
     id: light_button
+    internal: true
     filters:
       - delayed_on_off: 50ms
-    on_click:
+    on_multi_click:
 
-      # Single Tap Action (1 tap)
-      - min_length: 50ms
-        max_length: 400ms
+      # Single click (short press)
+      - timing:
+          - ON for at most 1s
         then:
+          - logger.log: "${devicename} Button - TAP"
           - switch.turn_on: relay
           - delay: 2min
           - switch.turn_off: relay
 
-      # Hold Action (toggle light state)
-      - min_length: 1s 
-        max_length: 5s
+      # Hold (long press)
+      - timing:
+          - ON for at least 1s
         then:
-          - switch.toggle: relay
+          - logger.log: "${devicename} Button - HOLD"
+          - switch.turn_on: relay
+          - delay: 30min
+          - switch.turn_off: relay
