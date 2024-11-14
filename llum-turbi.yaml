@@ -28,6 +28,8 @@ packages:
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
   sun: !include common/sun.yaml
+  
+  halt_automations: !include packages/halt-automations.yaml
 
 text_sensor:
   - platform: template
@@ -70,7 +72,7 @@ sun:
   on_sunset:
     - if:
         condition:
-          - lambda: return id(extend_after_sunset_enabled);
+          - lambda: return id(extend_after_sunset_enabled) && !id(halt_automations);
         then:
           - switch.turn_on: relay
           - delay: ${delay_after_sunset}

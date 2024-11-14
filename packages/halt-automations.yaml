@@ -1,0 +1,26 @@
+globals:
+  - id: halt_automations
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+
+text_sensor:
+  - platform: template
+    name: "Automations disabled?"
+    lambda: |-
+      if (id(halt_automations)) {
+        return {"ON"};
+      } else {
+        return {"OFF"};
+      }      
+
+mqtt:
+  on_message:
+    - topic: halt_automations
+      then:
+        - lambda: |-
+            if (x == "ON") {
+              id(halt_automations) = true;
+            } else if (x == "OFF") {
+              id(halt_automations) = false;
+            }

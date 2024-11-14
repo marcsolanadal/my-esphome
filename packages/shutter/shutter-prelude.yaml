@@ -19,6 +19,8 @@ packages:
   mqtt: !include ../../common/mqtt.yaml
   
   sun: !include ../../common/sun.yaml
+  
+  halt_automations: !include ../../packages/halt-automations.yaml
 
   wifi: !include 
     file: ../../common/wifi.yaml
