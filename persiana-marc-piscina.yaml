@@ -5,4 +5,5 @@ packages:
     vars:
       device_name: "persiana-marc-piscina"
       friendly_name: "persiana-marc-piscina"
+      topic_prefix: "persiana_marc_piscina"
       static_ip: 10.0.20.24

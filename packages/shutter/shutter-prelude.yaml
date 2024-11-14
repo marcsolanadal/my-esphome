@@ -29,3 +29,5 @@ packages:
 
   shutter: !include
     file: shutter.yaml
+    vars:
+      topic_prefix: ${topic_prefix}

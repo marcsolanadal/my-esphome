@@ -42,32 +42,32 @@ text_sensor:
 mqtt:
   on_message:
 
-    - topic: "shutter/open"
+    - topic: "${topic_prefix}/open"
       qos: 0
       then:
         - switch.toggle: relay_1
 
-    - topic: "shutter/close"
+    - topic: "${topic_prefix}/close"
       qos: 0
       then:
         - switch.toggle: relay_2
 
     # MQTT topic to set the open time
-    - topic: "shutter/set_open_time"
+    - topic: "${topic_prefix}/set_open_time"
       qos: 0
       then:
         - lambda: |-
             id(shutter_open_time) = x.c_str(); 
 
     # MQTT topic to set the close time
-    - topic: "shutter/set_close_time"
+    - topic: "${topic_prefix}/set_close_time"
       qos: 0
       then:
         - lambda: |-
             id(shutter_close_time) = x.c_str(); 
 
     # MQTT topic to return the stored open and close times
-    - topic: "shutter/info"
+    - topic: "${topic_prefix}/info"
       qos: 0
       then:
         - mqtt.publish:
