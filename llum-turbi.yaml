@@ -16,6 +16,7 @@ packages:
     file: hardware/shelly-plus-1.yaml
     vars:
       device_name: ${device_name}
+      friendly_name: ${friendly_name}
 
   wifi: !include 
     file: common/wifi.yaml
