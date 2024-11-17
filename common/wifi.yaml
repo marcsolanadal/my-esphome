@@ -21,3 +21,8 @@ ota:
   - platform: esphome
     id: my_ota
     password: !secret ota_password
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal Strength"
+    update_interval: 60s
