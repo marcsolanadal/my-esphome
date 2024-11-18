@@ -19,11 +19,6 @@ esp32:
       CONFIG_ESP32_DEFAULT_CPU_FREQ_160: y
       CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ: "160"
 
-output:
-  - platform: gpio
-    id: "relay_output"
-    pin: GPIO26
-
 sensor:
   - platform: ntc
     sensor: temp_resistance_reading
@@ -62,6 +57,17 @@ status_led:
   pin:
     number: GPIO0
     inverted: true
+
+output:
+  - platform: gpio
+    id: "relay_output"
+    pin: GPIO26
+
+switch:
+  - platform: output
+    id: "relay"
+    name: "${device_name} Relay"
+    output: "relay_output"
 
 # Reset Button
 binary_sensor:

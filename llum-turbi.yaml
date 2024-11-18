@@ -53,12 +53,6 @@ mqtt:
               id(extend_after_sunset_enabled) = false;
             }
 
-switch:
-  - platform: output
-    id: "relay"
-    name: "${device_name} Relay"
-    output: "relay_output"
-
 binary_sensor:
   - platform: gpio
     name: "${device_name} Switch"

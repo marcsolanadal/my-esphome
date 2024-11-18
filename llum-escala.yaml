@@ -22,36 +22,44 @@ packages:
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
 
-switch:
-  - platform: output
-    id: "relay"
-    name: "${device_name} Relay"
-    output: "relay_output"
+script:
+  - id: auto_off_2min
+    mode: restart
+    then:
+      - delay: 2min
+      - switch.turn_off: relay
+
+  - id: auto_off_30min
+    mode: restart
+    then:
+      - delay: 30min
+      - switch.turn_off: relay
 
 binary_sensor:
   - platform: gpio
     name: "${device_name} Switch"
     pin: GPIO4
-    id: light_button
-    internal: true
-    filters:
-      - delayed_on_off: 50ms
     on_multi_click:
 
-      # Single click (short press)
+      # Short press - toggle relay and turn off after 2 min
       - timing:
           - ON for at most 1s
         then:
-          - logger.log: "${devicename} Button - TAP"
-          - switch.turn_on: relay
-          - delay: 2min
-          - switch.turn_off: relay
+          - logger.log: "${device_name} Button - TAP"
+          - switch.toggle: relay
+          - if:
+              condition:
+                switch.is_on: relay
+              then:
+                - delay: 2min
+                - switch.turn_off: relay
+              # then:
+                # - script.execute: auto_off_2min
 
-      # Hold (long press)
-      - timing:
-          - ON for at least 1s
-        then:
-          - logger.log: "${devicename} Button - HOLD"
-          - switch.turn_on: relay
-          - delay: 30min
-          - switch.turn_off: relay
+      # Long press - toggle relay and turn off after 30 min
+      # - timing:
+      #     - ON for at least 1s
+      #   then:
+      #     - logger.log: "${device_name} Button - HOLD"
+      #     - switch.turn_on: relay
+      #     - script.execute: auto_off_30min
