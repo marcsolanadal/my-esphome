@@ -22,16 +22,19 @@ packages:
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
 
+# We want to stop all running scripts when any other button is pressed
 script:
   - id: auto_off_2min
     mode: restart
     then:
+      - script.stop: auto_off_30min
       - delay: 2min
       - switch.turn_off: relay
 
   - id: auto_off_30min
     mode: restart
     then:
+      - script.stop: auto_off_2min
       - delay: 30min
       - switch.turn_off: relay
 
@@ -39,8 +42,10 @@ binary_sensor:
   - platform: gpio
     name: "${device_name} Switch"
     pin: GPIO4
-    on_multi_click:
+    filters:
+      - delayed_on_off: 50ms
 
+    on_multi_click:
       # Short press - toggle relay and turn off after 2 min
       - timing:
           - ON for at most 1s
@@ -51,15 +56,12 @@ binary_sensor:
               condition:
                 switch.is_on: relay
               then:
-                - delay: 2min
-                - switch.turn_off: relay
-              # then:
-                # - script.execute: auto_off_2min
+                - script.execute: auto_off_2min
 
       # Long press - toggle relay and turn off after 30 min
-      # - timing:
-      #     - ON for at least 1s
-      #   then:
-      #     - logger.log: "${device_name} Button - HOLD"
-      #     - switch.turn_on: relay
-      #     - script.execute: auto_off_30min
+      - timing:
+          - ON for at least 1s
+        then:
+          - logger.log: "${device_name} Button - HOLD"
+          - switch.toggle: relay
+          - script.execute: auto_off_30min
