@@ -58,8 +58,11 @@ binary_sensor:
     name: "${device_name} Switch"
     pin: GPIO4
     on_press:
-      then:
-        - switch.toggle: "relay"
+     - if:
+        condition:
+          - sun.is_above_horizon:
+        then:
+          - switch.toggle: "relay"
     filters:
       - delayed_on_off: 50ms
 
