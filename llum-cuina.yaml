@@ -1,75 +1,71 @@
-esphome:
-  name: llum-cuina
-  friendly_name: llum-cuina
+substitutions:
+  device_name: "llum-cuina"
+  friendly_name: "llum-cuina"
+  static_ip: "10.0.20.34"
+  topic_prefix: "llum_cuina"
 
-esp32:
-  board: esp32dev
-  framework:
-    type: esp-idf
+packages:
+  shelly-plus-rgbw-pm: !include 
+    file: hardware/shelly-plus-rgbw-pm.yaml
+    vars:
+      device_name: ${device_name}
+      friendly_name: ${friendly_name}
 
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-   # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "Llum-cuina Fallback Hotspot"
-    password: "SVIgLIql004N"
+  wifi: !include 
+    file: common/wifi.yaml
+    vars:
+      static_ip: ${static_ip}
 
-captive_portal:
-logger:
-api:
-  encryption:
-    key: "8SCZZUwgDq+auPECDGEXZpMykE2kYk3SCrWPTdgX8Q8="
-ota:
-  - platform: esphome
-    password: "a4b2e3b9cf16d0aebf26c39b8aad8498"
+  logger: !include common/logger.yaml
+  reset: !include common/reset.yaml
+  web-server: !include common/web-server.yaml
+  # Beware when enabling this since if it cannot connect to the broker it will restart after 15 minutes
+  # mqtt: !include common/mqtt.yaml
+
+globals:
+  - id: light_state
+    type: int
+    restore_value: false
+    initial_value: "0"
 
 light:
-  - platform: rgbw
-    name: ${device_name} Led Stip
-    red: pwm_r
-    green: pwm_g
-    blue: pwm_b
-    white: pwm_w
-    effects:
-      - random:
-      - strobe:
-      - flicker:
+  - platform: cwww
+    id: llum_pica 
+    name: "Llum Pica"
+    cold_white: pwm_r
+    warm_white: pwm_g
+    cold_white_color_temperature: 6000 K
+    warm_white_color_temperature: 2700 K
+    constant_brightness: true
 
-status_led:
-  pin: GPIO14
+  - platform: cwww
+    name: "Llum Barra"
+    id: llum_barra
+    cold_white: pwm_b
+    warm_white: pwm_w
+    cold_white_color_temperature: 6000 K
+    warm_white_color_temperature: 2700 K
+    constant_brightness: true
 
-output:
-  - platform: ledc
-    pin: GPIO25
-    id: pwm_r
-    frequency: 19531
-  
-  - platform: ledc
-    pin: GPIO26
-    id: pwm_g
-    frequency: 19531
+# switch:
+#   - platform: template
+#     name: "Toggle Llums"
+#     id: toggle_llums
+#     turn_on_action:
+#       - light.toggle: llum_pica
+#       - light.toggle: llum_barra
 
-  - platform: ledc
-    pin: GPIO27
-    id: pwm_b
-    frequency: 19531
+#   - platform: template
+#     name: "Toggle Llum Pica"
+#     id: toggle_llum_pica
+#     turn_on_action:
+#       - light.toggle: llum_pica
 
-  - platform: ledc
-    pin: GPIO4
-    id: pwm_w
-    frequency: 19531
-
-switch:
-  - platform: output
-    name: "White LED Strip 1"
-    output: pwm_r
-    id: white_led_strip_1
-    
-  - platform: output
-    name: "White LED Strip 2"
-    output: pwm_g
-    id: white_led_strip_2
+#   - platform: template
+#     name: "Toggle Llum Barra"
+#     id: toggle_llum_barra
+#     turn_on_action:
+#       - light.toggle: llum_barra
 
 binary_sensor:
   - platform: gpio
@@ -78,63 +74,40 @@ binary_sensor:
       inverted: True
     name: ${device_name} Input 1
     filters:
-      - delayed_on_off: 10ms
-    on_multi_click:
-      # Short press - toggle relay and turn off after 2 min
-      - timing:
-          - ON for at most 1s
-        then:
-          - logger.log: "${device_name} Button - TAP"
-          - switch.toggle: white_led_strip_1
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_state:
+      - script.execute: toggle_lights
 
-      # Long press - toggle relay and turn off after 30 min
-      - timing:
-          - ON for at least 1s
-        then:
-          - logger.log: "${device_name} Button - HOLD"
-          - switch.toggle: white_led_strip_2
-  
   - platform: gpio
     pin:
-      number: GPIO22
-    name: ${device_name} Onboard Button
+      number: GPIO37
+      inverted: True
+    name: ${device_name} Input 2
     filters:
-      - delayed_on_off: 10ms
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_state:
+      - script.execute: toggle_lights
 
-sensor:
-  - platform: adc
-    pin: GPIO33
-    id: temp_analog_reading
-    attenuation: 12db
-
-  - platform: resistance
-    sensor: temp_analog_reading
-    id: temp_resistance_reading
-    configuration: DOWNSTREAM
-    resistor: 10kOhm
-
-  - platform: ntc
-    sensor: temp_resistance_reading
-    name: ${device_name} Temperature
-    calibration:
-      b_constant: 3350
-      reference_resistance: 10kOhm
-      reference_temperature: 298.15K
-
-  - platform: adc
-    pin: GPIO34
-    attenuation: 12db
-    name: ${device_name} Voltage
-    accuracy_decimals: 1
-    filters:
-      - multiply: 10.85
-
-  - platform: adc
-    pin: GPIO35
-    attenuation: 12db
-    name: ${device_name} Current
-    accuracy_decimals: 2
-    filters:
-      - offset: -0.794
-      - multiply: 16.13
-    unit_of_measurement: A
+script:
+  - id: toggle_lights
+    then:
+      - lambda: |-
+          ESP_LOGD("test", "Script toggle_lights executed");
+          if (id(light_state) == 0) {
+            ESP_LOGD("debug", "State 0: Turning ON llum_barra, Turning OFF llum_pica");
+            id(toggle_llum_pica).turn_on();
+            id(llum_pica).turn_off();
+            id(light_state) = 1;
+          } else if (id(light_state) == 1) {
+            ESP_LOGD("debug", "State 1: Turning ON llum_pica, Turning ON llum_barra");
+            id(llum_pica).turn_on();
+            id(llum_barra).turn_on();
+            id(light_state) = 2;
+          } else {
+            ESP_LOGD("debug", "State 2: Turning OFF both llum_barra and llum_pica");
+            id(llum_barra).turn_off();
+            id(llum_pica).turn_off();
+            id(light_state) = 0;
+          }
