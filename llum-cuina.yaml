@@ -27,87 +27,114 @@ globals:
     type: int
     restore_value: false
     initial_value: "0"
-
+  
+# Define lights using the independent PWM channels
 light:
-  - platform: cwww
-    id: llum_pica 
-    name: "Llum Pica"
-    cold_white: pwm_r
-    warm_white: pwm_g
-    cold_white_color_temperature: 6000 K
-    warm_white_color_temperature: 2700 K
-    constant_brightness: true
+  - platform: monochromatic
+    id: llum_pica_r
+    name: "Llum Pica Cold White"
+    output: pwm_r
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
 
-  - platform: cwww
-    name: "Llum Barra"
-    id: llum_barra
-    cold_white: pwm_b
-    warm_white: pwm_w
-    cold_white_color_temperature: 6000 K
-    warm_white_color_temperature: 2700 K
-    constant_brightness: true
+  - platform: monochromatic
+    id: llum_pica_g
+    name: "Llum Pica Warm White"
+    output: pwm_g
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
 
-# switch:
-#   - platform: template
-#     name: "Toggle Llums"
-#     id: toggle_llums
-#     turn_on_action:
-#       - light.toggle: llum_pica
-#       - light.toggle: llum_barra
+  - platform: monochromatic
+    id: llum_barra_b
+    name: "Llum Barra Cold White"
+    output: pwm_b
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
 
-#   - platform: template
-#     name: "Toggle Llum Pica"
-#     id: toggle_llum_pica
-#     turn_on_action:
-#       - light.toggle: llum_pica
-
-#   - platform: template
-#     name: "Toggle Llum Barra"
-#     id: toggle_llum_barra
-#     turn_on_action:
-#       - light.toggle: llum_barra
+  - platform: monochromatic
+    id: llum_barra_w
+    name: "Llum Barra Warm White"
+    output: pwm_w
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
 
 binary_sensor:
   - platform: gpio
+    id: interruptor_entrada_cuina
+    name: "${device_name} Input 1"
     pin:
       number: GPIO36
-      inverted: True
-    name: ${device_name} Input 1
+      inverted: true
     filters:
-      - delayed_on: 50ms
-      - delayed_off: 50ms
+      - delayed_on_off: 10ms
     on_state:
-      - script.execute: toggle_lights
+      then:
+        if: 
+          condition:
+            or: 
+              - binary_sensor.is_on: interruptor_entrada_cuina
+              - binary_sensor.is_on: interruptor_barra
+          then:
+            - light.turn_on: 
+                id: llum_barra_b
+                brightness: 50%
+            - light.turn_on: 
+                id: llum_barra_w
+                brightness: 100%
+          else:
+            - light.turn_off: 
+                id: llum_barra_b
+                transition_length: 1s
+            - light.turn_off: 
+                id: llum_barra_w
+                transition_length: 1s
 
   - platform: gpio
+    id: interruptor_barra
+    name: "${device_name} Input 2"
     pin:
       number: GPIO37
-      inverted: True
-    name: ${device_name} Input 2
+      inverted: true
     filters:
-      - delayed_on: 50ms
-      - delayed_off: 50ms
+      - delayed_on_off: 10ms
     on_state:
-      - script.execute: toggle_lights
+      then:
+        if: 
+          condition:
+            or: 
+              - binary_sensor.is_on: interruptor_entrada_cuina
+              - binary_sensor.is_on: interruptor_barra
+          then:
+            - light.turn_on: 
+                id: llum_barra_b
+                brightness: 50%
+            - light.turn_on: 
+                id: llum_barra_w
+                brightness: 100%
+          else:
+            - light.turn_off: 
+                id: llum_barra_b
+                transition_length: 1s
+            - light.turn_off: 
+                id: llum_barra_w
+                transition_length: 1s
 
-script:
-  - id: toggle_lights
-    then:
-      - lambda: |-
-          ESP_LOGD("test", "Script toggle_lights executed");
-          if (id(light_state) == 0) {
-            ESP_LOGD("debug", "State 0: Turning ON llum_barra, Turning OFF llum_pica");
-            id(toggle_llum_pica).turn_on();
-            id(llum_pica).turn_off();
-            id(light_state) = 1;
-          } else if (id(light_state) == 1) {
-            ESP_LOGD("debug", "State 1: Turning ON llum_pica, Turning ON llum_barra");
-            id(llum_pica).turn_on();
-            id(llum_barra).turn_on();
-            id(light_state) = 2;
-          } else {
-            ESP_LOGD("debug", "State 2: Turning OFF both llum_barra and llum_pica");
-            id(llum_barra).turn_off();
-            id(llum_pica).turn_off();
-            id(light_state) = 0;
-          }
+# script:
+#   - id: toggle_lights
+#     then:
+#       - lambda: |-
+#           ESP_LOGD("test", "Script toggle_lights executed");
+#           if (id(light_state) == 0) {
+#             ESP_LOGD("debug", "State 0: Turning ON llum_barra, Turning OFF llum_pica");
+#             id(llum_barra_b).turn_on();
+#             id(light_state) = 1;
+#           } else if (id(light_state) == 1) {
+#             ESP_LOGD("debug", "State 1: Turning ON llum_pica, Turning ON llum_barra");
+#             id(llum_barra_w).turn_on();
+#             id(light_state) = 2;
+#           } else {
+#             ESP_LOGD("debug", "State 2: Turning OFF both llum_barra and llum_pica");
+#             id(llum_barra_b).turn_off();
+#             id(llum_barra_w).turn_off();
+#             id(light_state) = 0;
+#           }
