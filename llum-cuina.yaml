@@ -22,11 +22,11 @@ packages:
   # Beware when enabling this since if it cannot connect to the broker it will restart after 15 minutes
   # mqtt: !include common/mqtt.yaml
 
-# globals:
-#   - id: light_state
-#     type: int
-#     restore_value: false
-#     initial_value: "0"
+globals:
+  - id: light_state
+    type: int
+    restore_value: false
+    initial_value: "0"
   
 light:
   - platform: monochromatic
@@ -65,10 +65,10 @@ binary_sensor:
       number: GPIO36
       inverted: true
     filters:
-      - delayed_on_off: 10ms
+      - delayed_on_off: 50ms
     on_state:
       then:
-        - script.execute: toggle_llum_barra
+        - script.execute: cycle_lights
        
   - platform: gpio
     id: interruptor_barra
@@ -77,10 +77,10 @@ binary_sensor:
       number: GPIO37
       inverted: true
     filters:
-      - delayed_on_off: 10ms
+      - delayed_on_off: 50ms
     on_state:
       then:
-         - script.execute: toggle_llum_barra
+         - script.execute: cycle_lights
 
 script:
   - id: toggle_llum_barra
@@ -105,22 +105,43 @@ script:
               id: llum_barra_w
               transition_length: 1s
 
-# script:
-#   - id: toggle_lights
-#     then:
-#       - lambda: |-
-#           ESP_LOGD("test", "Script toggle_lights executed");
-#           if (id(light_state) == 0) {
-#             ESP_LOGD("debug", "State 0: Turning ON llum_barra, Turning OFF llum_pica");
-#             id(llum_barra_b).turn_on();
-#             id(light_state) = 1;
-#           } else if (id(light_state) == 1) {
-#             ESP_LOGD("debug", "State 1: Turning ON llum_pica, Turning ON llum_barra");
-#             id(llum_barra_w).turn_on();
-#             id(light_state) = 2;
-#           } else {
-#             ESP_LOGD("debug", "State 2: Turning OFF both llum_barra and llum_pica");
-#             id(llum_barra_b).turn_off();
-#             id(llum_barra_w).turn_off();
-#             id(light_state) = 0;
-#           }
+  - id: toggle_llum_pica
+    then: 
+      if: 
+        condition:
+          and: 
+            - light.is_off: llum_pica_r
+            - light.is_off: llum_pica_g
+        then:
+          - light.turn_on: 
+              id: llum_pica_r
+              brightness: 50%
+          - light.turn_on: 
+              id: llum_pica_g
+              brightness: 100%
+        else:
+          - light.turn_off: 
+              id: llum_pica_r
+              transition_length: 1s
+          - light.turn_off: 
+              id: llum_pica_g
+              transition_length: 1s
+
+  - id: cycle_lights
+    then:
+      - lambda: |-
+          ESP_LOGD("test", "Script toggle_lights executed");
+          if (id(light_state) == 0) {
+            ESP_LOGD("debug", "State 0: Turning ON llum_barra, Turning OFF llum_pica");
+            id(toggle_llum_barra).execute(); // turns on llum_barra
+            id(light_state) = 1;
+          } else if (id(light_state) == 1) {
+            ESP_LOGD("debug", "State 1: Turning ON llum_pica, Turning ON llum_barra");
+            id(toggle_llum_pica).execute(); // turns on llum_pica
+            id(light_state) = 2;
+          } else {
+            ESP_LOGD("debug", "State 2: Turning OFF both llum_barra and llum_pica");
+            id(toggle_llum_barra).execute(); // turns off llum_barra
+            id(toggle_llum_pica).execute(); // turns off llum_pica
+            id(light_state) = 0;
+          }
