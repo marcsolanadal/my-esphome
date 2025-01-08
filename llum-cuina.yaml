@@ -22,13 +22,12 @@ packages:
   # Beware when enabling this since if it cannot connect to the broker it will restart after 15 minutes
   # mqtt: !include common/mqtt.yaml
 
-globals:
-  - id: light_state
-    type: int
-    restore_value: false
-    initial_value: "0"
+# globals:
+#   - id: light_state
+#     type: int
+#     restore_value: false
+#     initial_value: "0"
   
-# Define lights using the independent PWM channels
 light:
   - platform: monochromatic
     id: llum_pica_r
@@ -69,26 +68,8 @@ binary_sensor:
       - delayed_on_off: 10ms
     on_state:
       then:
-        if: 
-          condition:
-            or: 
-              - binary_sensor.is_on: interruptor_entrada_cuina
-              - binary_sensor.is_on: interruptor_barra
-          then:
-            - light.turn_on: 
-                id: llum_barra_b
-                brightness: 50%
-            - light.turn_on: 
-                id: llum_barra_w
-                brightness: 100%
-          else:
-            - light.turn_off: 
-                id: llum_barra_b
-                transition_length: 1s
-            - light.turn_off: 
-                id: llum_barra_w
-                transition_length: 1s
-
+        - script.execute: toggle_llum_barra
+       
   - platform: gpio
     id: interruptor_barra
     name: "${device_name} Input 2"
@@ -99,25 +80,30 @@ binary_sensor:
       - delayed_on_off: 10ms
     on_state:
       then:
-        if: 
-          condition:
-            or: 
-              - binary_sensor.is_on: interruptor_entrada_cuina
-              - binary_sensor.is_on: interruptor_barra
-          then:
-            - light.turn_on: 
-                id: llum_barra_b
-                brightness: 50%
-            - light.turn_on: 
-                id: llum_barra_w
-                brightness: 100%
-          else:
-            - light.turn_off: 
-                id: llum_barra_b
-                transition_length: 1s
-            - light.turn_off: 
-                id: llum_barra_w
-                transition_length: 1s
+         - script.execute: toggle_llum_barra
+
+script:
+  - id: toggle_llum_barra
+    then: 
+      if: 
+        condition:
+          and: 
+            - light.is_off: llum_barra_b
+            - light.is_off: llum_barra_w
+        then:
+          - light.turn_on: 
+              id: llum_barra_b
+              brightness: 50%
+          - light.turn_on: 
+              id: llum_barra_w
+              brightness: 100%
+        else:
+          - light.turn_off: 
+              id: llum_barra_b
+              transition_length: 1s
+          - light.turn_off: 
+              id: llum_barra_w
+              transition_length: 1s
 
 # script:
 #   - id: toggle_lights
