@@ -23,6 +23,7 @@ packages:
   # mqtt: !include common/mqtt.yaml
 
 globals:
+  # State machine
   - id: light_state
     type: int
     restore_value: false
@@ -31,7 +32,18 @@ globals:
     type: bool
     restore_value: false
     initial_value: "false"
+
+  # Color temperature control
+  - id: brightness_cold_white
+    type: float
+    initial_value: "0.5"  # 50%
+  - id: brightness_warm_white
+    type: float
+    initial_value: "1.0"  # 100%
   
+  # TODO: Instead of controlling the color with the sun component,
+  # we should control the relative brightness
+
 light:
   - platform: monochromatic
     id: llum_pica_r
@@ -97,10 +109,12 @@ script:
         then:
           - light.turn_on: 
               id: llum_barra_b
-              brightness: 50%
+              brightness: !lambda |-
+                return id(brightness_cold_white);
           - light.turn_on: 
               id: llum_barra_w
-              brightness: 100%
+              brightness: !lambda |-
+                return id(brightness_warm_white);
         else:
           - light.turn_off: 
               id: llum_barra_b
@@ -119,10 +133,12 @@ script:
         then:
           - light.turn_on: 
               id: llum_pica_r
-              brightness: 50%
+              brightness: !lambda |-
+                return id(brightness_cold_white);
           - light.turn_on: 
               id: llum_pica_g
-              brightness: 100%
+              brightness: !lambda |-
+                return id(brightness_warm_white);
         else:
           - light.turn_off: 
               id: llum_pica_r
