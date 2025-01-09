@@ -27,6 +27,10 @@ globals:
     type: int
     restore_value: false
     initial_value: "0"
+  - id: in_transition
+    type: bool
+    restore_value: false
+    initial_value: "false"
   
 light:
   - platform: monochromatic
@@ -130,18 +134,42 @@ script:
   - id: cycle_lights
     then:
       - lambda: |-
-          ESP_LOGD("test", "Script toggle_lights executed");
+          if (id(in_transition)) {
+            ESP_LOGD("debug", "Transition in progress, ignoring input.");
+            return;
+          }
+          id(in_transition) = true; // Block further transitions
+
           if (id(light_state) == 0) {
             ESP_LOGD("debug", "State 0: Turning ON llum_barra, Turning OFF llum_pica");
-            id(toggle_llum_barra).execute(); // turns on llum_barra
+            id(toggle_llum_barra).execute(); // Turns on llum_barra
             id(light_state) = 1;
+            id(in_transition) = false; // Allow transitions immediately
           } else if (id(light_state) == 1) {
-            ESP_LOGD("debug", "State 1: Turning ON llum_pica, Turning ON llum_barra");
-            id(toggle_llum_pica).execute(); // turns on llum_pica
+            ESP_LOGD("debug", "State 1: Turning ON llum_pica, Keeping llum_barra ON");
+            id(toggle_llum_pica).execute(); // Turns on llum_pica
             id(light_state) = 2;
-          } else {
+            id(in_transition) = false; // Allow transitions immediately
+          } else if (id(light_state) == 2) {
             ESP_LOGD("debug", "State 2: Turning OFF both llum_barra and llum_pica");
-            id(toggle_llum_barra).execute(); // turns off llum_barra
-            id(toggle_llum_pica).execute(); // turns off llum_pica
-            id(light_state) = 0;
+            id(toggle_llum_barra).execute(); // Turns off llum_barra
+            id(toggle_llum_pica).execute(); // Turns off llum_pica
+            id(wait_for_lights_off).execute();
           }
+
+  - id: wait_for_lights_off
+    then:
+      - wait_until:
+          condition:
+            and:
+              - light.is_off: llum_barra_b
+              - light.is_off: llum_barra_w
+              - light.is_off: llum_pica_r
+              - light.is_off: llum_pica_g
+          timeout: 2s
+      - lambda: |-
+          ESP_LOGD("debug", "All lights are off, wait_for_lights_off completed.");
+          id(light_state) = 0;
+          id(in_transition) = false; // Allow transitions
+
+
