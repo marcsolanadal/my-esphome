@@ -24,17 +24,17 @@ packages:
 
 # We want to stop all running scripts when any other button is pressed
 script:
-  - id: auto_off_2min
+  - id: auto_off_3min
     mode: restart
     then:
       - script.stop: auto_off_30min
-      - delay: 2min
+      - delay: 3min
       - switch.turn_off: relay
 
   - id: auto_off_30min
     mode: restart
     then:
-      - script.stop: auto_off_2min
+      - script.stop: auto_off_3min
       - delay: 30min
       - switch.turn_off: relay
 
@@ -56,7 +56,7 @@ binary_sensor:
               condition:
                 switch.is_on: relay
               then:
-                - script.execute: auto_off_2min
+                - script.execute: auto_off_3min
 
       # Long press - toggle relay and turn off after 30 min
       - timing:
