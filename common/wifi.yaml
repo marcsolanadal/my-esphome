@@ -15,11 +15,21 @@ wifi:
     ssid: ${device_name}
     password: !secret ap_password
 
+  # reboot_timeout: 0s
+
+  on_connect:
+    - lambda: |-
+        ESP_LOGD("debug", "----------------- Connected to WiFi!");
+  on_disconnect:
+    - lambda: |-
+        ESP_LOGD("debug", "----------------- Disconnected from WiFi!");
+
 captive_portal:
 
 ota:
   - platform: esphome
     id: my_ota
+    # password: "old_password"
     password: !secret ota_password
 
 sensor:

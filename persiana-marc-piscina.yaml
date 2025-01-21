@@ -1,5 +1,4 @@
 packages:
-
   shutter-prelude: !include 
     file: packages/shutter/shutter-prelude.yaml
     vars:
