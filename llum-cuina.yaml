@@ -19,9 +19,8 @@ packages:
   logger: !include common/logger.yaml
   reset: !include common/reset.yaml
   web-server: !include common/web-server.yaml
-  # Beware when enabling this since if it cannot connect to the broker it will restart after 15 minutes
-  # mqtt: !include common/mqtt.yaml
-
+  mqtt: !include common/mqtt.yaml
+ 
 globals:
   # State machine
   - id: light_state
@@ -36,13 +35,36 @@ globals:
   # Color temperature control
   - id: brightness_cold_white
     type: float
-    initial_value: "0.5"  # 50%
+    initial_value: "0.5" 
   - id: brightness_warm_white
     type: float
-    initial_value: "1.0"  # 100%
+    initial_value: "1.0"
   
-  # TODO: Instead of controlling the color with the sun component,
-  # we should control the relative brightness
+mqtt:
+  topic_prefix: "${topic_prefix}"
+  on_message:
+    - topic: "/toggle/llum_barra"
+      qos: 1
+      then:
+        - script.execute: toggle_llum_barra
+    - topic: "/toggle/llum_pica"
+      qos: 1
+      then:
+        - script.execute: toggle_llum_pica
+    - topic: "/brightness_cold_white"
+      qos: 1
+      then:
+        - lambda: |-
+            float value = atof(x.c_str());
+            id(brightness_cold_white) = value;
+            ESP_LOGD("MQTT", "Brightness Cold White set to %f", value);
+    - topic: "/brightness_warm_white"
+      qos: 1
+      then:
+        - lambda: |-
+            float value = atof(x.c_str());
+            id(brightness_warm_white) = value;
+            ESP_LOGD("MQTT", "Brightness Warm White set to %f", value);
 
 light:
   - platform: monochromatic
