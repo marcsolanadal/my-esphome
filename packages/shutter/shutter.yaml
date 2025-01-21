@@ -3,7 +3,7 @@ globals:
   - id: shutter_open_time
     type: std::string
     restore_value: yes
-    initial_value: '"07:00"'  # Default open time
+    initial_value: '"08:30"'  # Default open time
   
   - id: shutter_close_time
     type: std::string
@@ -24,6 +24,17 @@ globals:
     type: int
     restore_value: yes
     initial_value: '0'
+
+  # Offsets for sunrise and sunset in minutes
+  - id: sunrise_offset
+    type: int
+    restore_value: yes
+    initial_value: '0'  # Default: No offset
+
+  - id: sunset_offset
+    type: int
+    restore_value: yes
+    initial_value: '0'  # Default: No offset
 
 text_sensor:
 
@@ -85,35 +96,62 @@ mqtt:
                        current_time_str.c_str());
               return payload;
 
-# Automation to check the current time and trigger shutters open/close
 interval:
   - interval: 1min
     then:
       - lambda: |-
-          auto current_time = id(sntp_time).now();
-          char buffer[6];
-          sprintf(buffer, "%02d:%02d", current_time.hour, current_time.minute);
-          std::string current_time_str = buffer;
+          // Calculate adjusted sunrise and sunset times
+          auto adjusted_sunrise = id(sun).sunrise + id(sunrise_offset) * 60;  // Sunrise + offset (seconds)
+          auto adjusted_sunset = id(sun).sunset + id(sunset_offset) * 60;  // Sunset + offset (seconds)
+          auto now = id(sntp_time).now();
 
-          // Check if it's time to open the shutters
-          if (current_time_str == id(shutter_open_time) && !id(shutter_opened_today)) {
-            id(relay_1).turn_on();
-            id(shutter_opened_today) = true;  
+          // Compare current time with adjusted sunrise
+          if (now.hour == adjusted_sunrise.hour && now.minute == adjusted_sunrise.minute && !id(shutter_opened_today)) {
+            id(relay_1).turn_on();  // Open shutters
+            id(shutter_opened_today) = true;  // Prevent re-triggering
           }
 
-          // Check if it's time to close the shutters
-          if (current_time_str == id(shutter_close_time)) {
-            id(relay_2).turn_on(); 
-            id(shutter_closed_today) = true;
+          // Compare current time with adjusted sunset
+          if (now.hour == adjusted_sunset.hour && now.minute == adjusted_sunset.minute && !id(shutter_closed_today)) {
+            id(relay_2).turn_on();  // Close shutters
+            id(shutter_closed_today) = true;  // Prevent re-triggering
           }
-      
-       # Reset open/close flags at midnight for the next day
-      - lambda: |-
-          auto current_time = id(sntp_time).now();
-          if (current_time.hour == 0 && current_time.minute == 0) {
+
+          // Reset flags at midnight
+          if (now.hour == 0 && now.minute == 0) {
             id(shutter_opened_today) = false;
             id(shutter_closed_today) = false;
           }
+
+# Automation to check the current time and trigger shutters open/close
+# interval:
+#   - interval: 1min
+#     then:
+#       - lambda: |-
+#           auto current_time = id(sntp_time).now();
+#           char buffer[6];
+#           sprintf(buffer, "%02d:%02d", current_time.hour, current_time.minute);
+#           std::string current_time_str = buffer;
+
+#           // Check if it's time to open the shutters
+#           if (current_time_str == id(shutter_open_time) && !id(shutter_opened_today)) {
+#             id(relay_1).turn_on();
+#             id(shutter_opened_today) = true;  
+#           }
+
+#           // Check if it's time to close the shutters
+#           if (current_time_str == id(shutter_close_time)) {
+#             id(relay_2).turn_on(); 
+#             id(shutter_closed_today) = true;
+#           }
+      
+#        # Reset open/close flags at midnight for the next day
+#       - lambda: |-
+#           auto current_time = id(sntp_time).now();
+#           if (current_time.hour == 0 && current_time.minute == 0) {
+#             id(shutter_opened_today) = false;
+#             id(shutter_closed_today) = false;
+#           }
 
 # Internal Shelly Switch Outputs
 switch:
