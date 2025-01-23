@@ -54,17 +54,17 @@ mqtt:
     - topic: "${topic_prefix}/brightness_cold_white"
       qos: 1
       then:
-        - lambda: |-
-            float value = atof(x.c_str());
-            id(brightness_cold_white) = value;
-            ESP_LOGD("MQTT", "Brightness Cold White set to %f", value);
+         - script.execute:
+            id: parse_brightness
+            payload: !lambda 'return x;'  # Pass the payload
+            target: !lambda 'return &id(brightness_cold_white);'  # Pass the pointer to the global variable
     - topic: "${topic_prefix}/brightness"
       qos: 1
       then:
-        - lambda: |-
-            float value = atof(x.c_str());
-            id(brightness_warm_white) = value;
-            ESP_LOGD("MQTT", "Brightness Warm White set to %f", value);
+        - script.execute:
+            id: parse_brightness
+            payload: !lambda 'return x;'  # Pass the payload
+            target: !lambda 'return &id(brightness_warm_white);'
 
 light:
   - platform: monochromatic
@@ -210,4 +210,28 @@ script:
           id(light_state) = 0;
           id(in_transition) = false; // Allow transitions
 
+  - id: parse_brightness
+    parameters:
+      payload: string    # The MQTT payload (JSON)
+      target: float*     # A pointer to the target global variable
+    then:
+      - lambda: |-
+          ESP_LOGD("MQTT", "Received payload: %s", payload.c_str());
+
+          // Parse the JSON payload
+          StaticJsonDocument<256> doc;
+          auto error = deserializeJson(doc, payload);
+          if (error) {
+            ESP_LOGW("MQTT", "Failed to parse JSON: %s", error.c_str());
+            return;
+          }
+
+          // Check if the JSON contains the "brightness" key
+          if (doc.containsKey("brightness")) {
+            float value = doc["brightness"].as<float>();
+            *target = value;  // Set the value of the passed global variable
+            ESP_LOGD("MQTT", "Set brightness to %f", value);
+          } else {
+            ESP_LOGW("MQTT", "Key 'brightness' not found in JSON payload");
+          }
 
