@@ -39,6 +39,12 @@ globals:
   - id: brightness_warm_white
     type: float
     initial_value: "1.0"
+
+  # Pulse effect
+  - id: pulse_active
+    type: bool
+    restore_value: false
+    initial_value: "false"
   
 mqtt:
   topic_prefix: "${topic_prefix}"
@@ -65,6 +71,10 @@ mqtt:
             id: set_brightness
             payload: !lambda 'return x;'
             target: !lambda 'return &id(brightness_warm_white);'  # Pass the pointer to the global variable
+    - topic: "${topic_prefix}/toggle_strobe_effect"
+      qos: 1
+      then:
+        - script.execute: toggle_strobe_effect
 
 light:
   - platform: monochromatic
@@ -73,6 +83,15 @@ light:
     output: pwm_r
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
+    effects:
+      - strobe:
+          name: "Strobe Effect Pica Cold White"
+          colors:
+            - state: True
+              brightness: 100%
+              duration: 500ms
+            - state: False
+              duration: 500ms
 
   - platform: monochromatic
     id: llum_pica_g
@@ -80,6 +99,15 @@ light:
     output: pwm_g
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
+    effects:
+      - strobe:
+          name: "Strobe Effect Pica Warm White"
+          colors:
+            - state: True
+              brightness: 100%
+              duration: 500ms
+            - state: False
+              duration: 500ms
 
   - platform: monochromatic
     id: llum_barra_b
@@ -87,6 +115,15 @@ light:
     output: pwm_b
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
+    effects:
+      - strobe:
+          name: "Strobe Effect Barra Cold White"
+          colors:
+            - state: True
+              brightness: 100%
+              duration: 500ms
+            - state: False
+              duration: 500ms
 
   - platform: monochromatic
     id: llum_barra_w
@@ -94,6 +131,15 @@ light:
     output: pwm_w
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
+    effects:
+      - strobe:
+          name: "Strobe Effect Barra Warm White"
+          colors:
+            - state: True
+              brightness: 100%
+              duration: 500ms
+            - state: False
+              duration: 500ms
 
 binary_sensor:
   - platform: gpio
@@ -235,3 +281,47 @@ script:
             ESP_LOGW("MQTT", "Key 'brightness' not found in JSON payload");
           }
 
+  - id: toggle_strobe_effect
+    then:
+      - if:
+          condition:
+            lambda: "return id(pulse_active);"  # Check if the strobe effect is active
+          then:
+            # Disable strobe effect
+            - light.turn_on:
+                id: llum_barra_b
+                effect: none
+                brightness: !lambda "return id(brightness_cold_white);"
+            - light.turn_on:
+                id: llum_barra_w
+                effect: none
+                brightness: !lambda "return id(brightness_warm_white);"
+            - light.turn_on:
+                id: llum_pica_r
+                effect: none
+                brightness: !lambda "return id(brightness_cold_white);"
+            - light.turn_on:
+                id: llum_pica_g
+                effect: none
+                brightness: !lambda "return id(brightness_warm_white);"
+            - lambda: |-
+                ESP_LOGD("Strobe Effect", "Disabling strobe effect");
+                id(pulse_active) = false;
+
+          else:
+            # Enable strobe effect
+            - light.turn_on:
+                id: llum_barra_b
+                effect: "Strobe Effect Barra Cold White"
+            - light.turn_on:
+                id: llum_barra_w
+                effect: "Strobe Effect Barra Warm White"
+            - light.turn_on:
+                id: llum_pica_r
+                effect: "Strobe Effect Pica Cold White"
+            - light.turn_on:
+                id: llum_pica_g
+                effect: "Strobe Effect Pica Warm White"
+            - lambda: |-
+                ESP_LOGD("Strobe Effect", "Enabling strobe effect");
+                id(pulse_active) = true;
