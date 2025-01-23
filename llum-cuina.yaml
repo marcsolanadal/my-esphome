@@ -16,7 +16,8 @@ packages:
     vars:
       static_ip: ${static_ip}
 
-  debug: !include common/debug.yaml
+  logger: !include common/logger.yaml
+  #debug: !include common/debug.yaml
   reset: !include common/reset.yaml
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
