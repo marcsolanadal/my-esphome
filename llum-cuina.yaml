@@ -17,7 +17,6 @@ packages:
       static_ip: ${static_ip}
 
   logger: !include common/logger.yaml
-  #debug: !include common/debug.yaml
   reset: !include common/reset.yaml
   mqtt: !include common/mqtt.yaml
  
@@ -41,7 +40,7 @@ globals:
     initial_value: "1.0"
 
   # Pulse effect
-  - id: pulse_active
+  - id: effect_active
     type: bool
     restore_value: false
     initial_value: "false"
@@ -71,10 +70,10 @@ mqtt:
             id: set_brightness
             payload: !lambda 'return x;'
             target: !lambda 'return &id(brightness_warm_white);'  # Pass the pointer to the global variable
-    - topic: "${topic_prefix}/toggle_strobe_effect"
+    - topic: "${topic_prefix}/toggle_effect"
       qos: 1
       then:
-        - script.execute: toggle_strobe_effect
+        - script.execute: toggle_effect
 
 light:
   - platform: monochromatic
@@ -83,15 +82,6 @@ light:
     output: pwm_r
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
-    effects:
-      - strobe:
-          name: "Strobe Effect Pica Cold White"
-          colors:
-            - state: True
-              brightness: 100%
-              duration: 500ms
-            - state: False
-              duration: 500ms
 
   - platform: monochromatic
     id: llum_pica_g
@@ -99,15 +89,6 @@ light:
     output: pwm_g
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
-    effects:
-      - strobe:
-          name: "Strobe Effect Pica Warm White"
-          colors:
-            - state: True
-              brightness: 100%
-              duration: 500ms
-            - state: False
-              duration: 500ms
 
   - platform: monochromatic
     id: llum_barra_b
@@ -115,15 +96,6 @@ light:
     output: pwm_b
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
-    effects:
-      - strobe:
-          name: "Strobe Effect Barra Cold White"
-          colors:
-            - state: True
-              brightness: 100%
-              duration: 500ms
-            - state: False
-              duration: 500ms
 
   - platform: monochromatic
     id: llum_barra_w
@@ -132,14 +104,10 @@ light:
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
     effects:
-      - strobe:
-          name: "Strobe Effect Barra Warm White"
-          colors:
-            - state: True
-              brightness: 100%
-              duration: 500ms
-            - state: False
-              duration: 500ms
+      - flicker:
+          name: "Flicker Effect"
+          alpha: 95%
+          intensity: 5%
 
 binary_sensor:
   - platform: gpio
@@ -281,47 +249,26 @@ script:
             ESP_LOGW("MQTT", "Key 'brightness' not found in JSON payload");
           }
 
-  - id: toggle_strobe_effect
+  - id: toggle_effect
     then:
       - if:
           condition:
-            lambda: "return id(pulse_active);"  # Check if the strobe effect is active
+            lambda: "return id(effect_active);"  # Check if the effect is active
           then:
-            # Disable strobe effect
-            - light.turn_on:
-                id: llum_barra_b
-                effect: none
-                brightness: !lambda "return id(brightness_cold_white);"
+            # Disable effect for all lights
             - light.turn_on:
                 id: llum_barra_w
                 effect: none
                 brightness: !lambda "return id(brightness_warm_white);"
-            - light.turn_on:
-                id: llum_pica_r
-                effect: none
-                brightness: !lambda "return id(brightness_cold_white);"
-            - light.turn_on:
-                id: llum_pica_g
-                effect: none
-                brightness: !lambda "return id(brightness_warm_white);"
             - lambda: |-
-                ESP_LOGD("Strobe Effect", "Disabling strobe effect");
-                id(pulse_active) = false;
+                ESP_LOGD("Flicker Effect", "Disabling flicker effect on all lights");
+                id(effect_active) = false;
 
           else:
-            # Enable strobe effect
-            - light.turn_on:
-                id: llum_barra_b
-                effect: "Strobe Effect Barra Cold White"
+            # Enable flicker effect for all lights
             - light.turn_on:
                 id: llum_barra_w
-                effect: "Strobe Effect Barra Warm White"
-            - light.turn_on:
-                id: llum_pica_r
-                effect: "Strobe Effect Pica Cold White"
-            - light.turn_on:
-                id: llum_pica_g
-                effect: "Strobe Effect Pica Warm White"
+                effect: "Flicker Effect"
             - lambda: |-
-                ESP_LOGD("Strobe Effect", "Enabling strobe effect");
-                id(pulse_active) = true;
+                ESP_LOGD("Flicker Effect", "Enabling flicker effect on all lights");
+                id(effect_active) = true;
