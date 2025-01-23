@@ -43,22 +43,22 @@ globals:
 mqtt:
   topic_prefix: "${topic_prefix}"
   on_message:
-    - topic: "/toggle/llum_barra"
+    - topic: "${topic_prefix}/toggle/llum_barra"
       qos: 1
       then:
         - script.execute: toggle_llum_barra
-    - topic: "/toggle/llum_pica"
+    - topic: "${topic_prefix}/toggle/llum_pica"
       qos: 1
       then:
         - script.execute: toggle_llum_pica
-    - topic: "/brightness_cold_white"
+    - topic: "${topic_prefix}/brightness_cold_white"
       qos: 1
       then:
         - lambda: |-
             float value = atof(x.c_str());
             id(brightness_cold_white) = value;
             ESP_LOGD("MQTT", "Brightness Cold White set to %f", value);
-    - topic: "/brightness_warm_white"
+    - topic: "${topic_prefix}/brightness"
       qos: 1
       then:
         - lambda: |-
