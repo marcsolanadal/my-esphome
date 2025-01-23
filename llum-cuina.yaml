@@ -104,10 +104,31 @@ light:
     restore_mode: ALWAYS_OFF
     default_transition_length: 0s
     effects:
-      - flicker:
-          name: "Flicker Effect"
-          alpha: 95%
-          intensity: 5%
+      - lambda:
+          name: "Fade Effect"
+          update_interval: 50ms
+          lambda: |-
+            static bool fading_down = true;  // Track the fade direction
+            static float brightness = 1.0;  // Start at 100%
+
+            if (fading_down) {
+              brightness -= 0.02;  // Decrease brightness
+              if (brightness <= 0.7) {
+                brightness = 0.7;
+                fading_down = false;  // Switch direction to fade up
+              }
+            } else {
+              brightness += 0.02;  // Increase brightness
+              if (brightness >= 1.0) {
+                brightness = 1.0;
+                fading_down = true;  // Switch direction to fade down
+              }
+            }
+
+            // Apply brightness
+            auto call = id(llum_barra_w).turn_on();
+            call.set_brightness(brightness);
+            call.perform();
 
 binary_sensor:
   - platform: gpio
@@ -261,14 +282,14 @@ script:
                 effect: none
                 brightness: !lambda "return id(brightness_warm_white);"
             - lambda: |-
-                ESP_LOGD("Flicker Effect", "Disabling flicker effect on all lights");
+                ESP_LOGD("Fade Effect", "Disabling fade effect on all lights");
                 id(effect_active) = false;
 
           else:
-            # Enable flicker effect for all lights
+            # Enable fade effect for all lights
             - light.turn_on:
                 id: llum_barra_w
-                effect: "Flicker Effect"
+                effect: "Fade Effect"
             - lambda: |-
-                ESP_LOGD("Flicker Effect", "Enabling flicker effect on all lights");
+                ESP_LOGD("Fade Effect", "Enabling fade effect on all lights");
                 id(effect_active) = true;
