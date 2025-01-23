@@ -8,12 +8,12 @@ text_sensor:
     reset_reason:
       name: "Reset Reason"
 
-# sensor:
-#   - platform: debug
-#     free:
-#       name: "Heap Free"
-#     loop_time:
-#       name: "Loop Time"
+sensor:
+  - platform: debug
+    free:
+      name: "Heap Free"
+    loop_time:
+      name: "Loop Time"
 
 # Logger must be at least debug (default)
 logger:

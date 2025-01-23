@@ -8,7 +8,7 @@ packages:
 
   shelly-plus-2: !include ../../hardware/shelly-plus-2.yaml
 
-  logger: !include ../../common/logger.yaml
+  debug: !include ../../common/debug.yaml
   
   reset: !include ../../common/reset.yaml
   
