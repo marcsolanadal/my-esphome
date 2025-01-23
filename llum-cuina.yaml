@@ -19,7 +19,6 @@ packages:
   logger: !include common/logger.yaml
   #debug: !include common/debug.yaml
   reset: !include common/reset.yaml
-  web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
  
 globals:
@@ -56,16 +55,16 @@ mqtt:
       qos: 1
       then:
          - script.execute:
-            id: parse_brightness
-            payload: !lambda 'return x;'  # Pass the payload
+            id: set_brightness
+            payload: !lambda 'return x;'
             target: !lambda 'return &id(brightness_cold_white);'  # Pass the pointer to the global variable
-    - topic: "${topic_prefix}/brightness"
+    - topic: "${topic_prefix}/brightness_warm_white"
       qos: 1
       then:
         - script.execute:
-            id: parse_brightness
-            payload: !lambda 'return x;'  # Pass the payload
-            target: !lambda 'return &id(brightness_warm_white);'
+            id: set_brightness
+            payload: !lambda 'return x;'
+            target: !lambda 'return &id(brightness_warm_white);'  # Pass the pointer to the global variable
 
 light:
   - platform: monochromatic
@@ -211,7 +210,7 @@ script:
           id(light_state) = 0;
           id(in_transition) = false; // Allow transitions
 
-  - id: parse_brightness
+  - id: set_brightness
     parameters:
       payload: string    # The MQTT payload (JSON)
       target: float*     # A pointer to the target global variable
