@@ -1,5 +1,9 @@
-# Enable Home Assistant API for remote logging
-api:
-
 logger:
-  level: INFO
+  level: WARN
+  on_message:
+    level: ERROR
+    then:
+      - mqtt.publish:
+          topic: ${topic_prefix}/error
+          payload: !lambda |-
+            return "Triggered on_message with level " + to_string(level) + ", tag " + tag + " and message " + message;

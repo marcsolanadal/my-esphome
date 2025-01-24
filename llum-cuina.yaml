@@ -17,6 +17,7 @@ packages:
       static_ip: ${static_ip}
 
   logger: !include common/logger.yaml
+  # debug: !include common/debug.yaml
   reset: !include common/reset.yaml
   mqtt: !include common/mqtt.yaml
  
@@ -45,6 +46,7 @@ globals:
     restore_value: false
     initial_value: "false"
   
+# TODO: Once we listen for the door garage sensor, we will need to implement the halt automations functionality
 mqtt:
   topic_prefix: "${topic_prefix}"
   on_message:
