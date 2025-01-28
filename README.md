@@ -19,6 +19,12 @@ esphome run persiana-marc-piscina.yaml --device 10.0.20.24
     nix-shell -p esphome --run "esphome run llum-cuina.yaml --device 10.0.20.34"
     ```
 
+
+ NOTE: It's not necessary to add the device ip
+```sh
+nix-shell -p esphome --run "esphome run llum-cuina.yaml --device OTA"
+```
+
 - Show logs of a specific device
 
     ```sh
