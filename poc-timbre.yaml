@@ -1,0 +1,84 @@
+substitutions:
+  device_name: "poc-timbre"
+  friendly_name: "poc-timbre"
+  output_name_1: "Output 1"
+  input_name_1: "Input 1"
+
+packages:
+
+  shelly-plus-2: !include hardware/shelly-plus-1.yaml
+  debug: !include common/debug.yaml
+  reset: !include common/reset.yaml
+  web-server: !include common/web-server.yaml
+  mqtt: !include common/mqtt.yaml
+
+  wifi: !include 
+    file: common/wifi.yaml
+    vars:
+      static_ip: 10.0.20.31
+
+globals:
+  - id: ring_active
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+script:
+  - id: ring_sound
+    mode: restart
+    then:
+      - switch.turn_on: relay
+      - delay: 0.5s
+      - switch.turn_off: relay
+      - delay: 0.5s
+      - switch.turn_on: relay
+      - delay: 0.5s
+      - switch.turn_off: relay
+      - delay: 10s
+
+mqtt:
+  topic_prefix: "${topic_prefix}"
+
+  # Listen for Zigbee2MQTT messages about the door sensor
+  on_message:
+    - topic: "zigbee2mqtt/<door_sensor_name>/contact"  # Replace with your sensor's MQTT topic
+      qos: 1
+      then:
+        - lambda: |-
+            auto now = id(sntp_time).now();
+            if (x.contains("true")) {  // Door is open
+              if (now.hour >= 21) {
+                id(ring_active) = true;
+                ESP_LOGI("MQTT", "Door open after 21:00, starting ring.");
+                id(ring_sound).execute();
+              }
+            } else {  // Door is closed
+              id(ring_active) = false;
+              ESP_LOGI("MQTT", "Door closed, stopping ring.");
+            }
+
+    - topic: "${topic_prefix}/enable"
+      qos: 1
+      then:
+        - globals.set:
+            id: ring_active
+            value: "true"
+        - script.execute: ring_sound
+
+    - topic: "${topic_prefix}/disable"
+      qos: 1
+      then:
+        - globals.set:
+            id: ring_active
+            value: "false"
+        
+interval:
+  - interval: 1min
+    then:
+      - if:
+          condition:
+            lambda: 'return id(ring_active);'
+          then:
+            - script.execute: ring_sound
+          else:
+            - ESP_LOGI("interval", "Ring inactive, skipping.")
