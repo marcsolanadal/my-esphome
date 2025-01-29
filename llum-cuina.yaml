@@ -81,6 +81,11 @@ mqtt:
                 ESP_LOGI("MQTT", "Garage door opened after 21:00, enabling effect.");
                 id(toggle_effect).execute();
               }
+            } else {
+              if (id(effect_active)) {  // Only toggle if not already active
+                ESP_LOGI("MQTT", "Garage door closed, disabling effect.");
+                id(toggle_effect).execute();
+              }
             }
 
     - topic: "${topic_prefix}/toggle/llum_barra"
