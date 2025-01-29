@@ -5,13 +5,12 @@ substitutions:
   input_name_1: "Input 1"
 
 packages:
-
-  shelly-plus-2: !include hardware/shelly-plus-1.yaml
-  debug: !include common/debug.yaml
+  shelly-plus-1: !include hardware/shelly-plus-1.yaml
+  halt-automations: !include packages/halt-automations.yaml
+  logger: !include common/logger.yaml
   reset: !include common/reset.yaml
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
-
   wifi: !include 
     file: common/wifi.yaml
     vars:
@@ -38,23 +37,42 @@ script:
 
 mqtt:
   topic_prefix: "${topic_prefix}"
-
-  # Listen for Zigbee2MQTT messages about the door sensor
   on_message:
-    - topic: "zigbee2mqtt/<door_sensor_name>/contact"  # Replace with your sensor's MQTT topic
+    - topic: "zigbee2mqtt/laia-marc-porta-garatge-contact-sensor"
       qos: 1
       then:
         - lambda: |-
+            if (id(halt_automations)) {
+              ESP_LOGI("MQTT", "Automations are halted, ignoring door sensor event.");
+              return;
+            }
+
+            StaticJsonDocument<256> doc;
+            auto error = deserializeJson(doc, x);
+            if (error) {
+              ESP_LOGW("MQTT", "Failed to parse JSON: %s", error.c_str());
+              return;
+            }
+
+            if (!doc.containsKey("contact")) {
+              ESP_LOGW("MQTT", "Missing 'contact' key in JSON payload");
+              return;
+            }
+
+            bool door_open = !doc["contact"].as<bool>();
             auto now = id(sntp_time).now();
-            if (x.contains("true")) {  // Door is open
-              if (now.hour >= 21) {
+
+            if (door_open && now.hour >= 21) {
+              if (!id(effect_active)) {  // Only toggle if not already active
+                ESP_LOGI("MQTT", "Garage door opened after 21:00, starting ring.");
                 id(ring_active) = true;
-                ESP_LOGI("MQTT", "Door open after 21:00, starting ring.");
                 id(ring_sound).execute();
               }
-            } else {  // Door is closed
-              id(ring_active) = false;
-              ESP_LOGI("MQTT", "Door closed, stopping ring.");
+            } else {
+              if (id(effect_active)) {  // Only toggle if not already inactive
+                ESP_LOGI("MQTT", "Garage door closed, stopping ring.");
+                id(ring_active) = false;
+              }
             }
 
     - topic: "${topic_prefix}/enable"
@@ -71,14 +89,3 @@ mqtt:
         - globals.set:
             id: ring_active
             value: "false"
-        
-interval:
-  - interval: 1min
-    then:
-      - if:
-          condition:
-            lambda: 'return id(ring_active);'
-          then:
-            - script.execute: ring_sound
-          else:
-            - ESP_LOGI("interval", "Ring inactive, skipping.")
