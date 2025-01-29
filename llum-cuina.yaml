@@ -11,15 +11,18 @@ packages:
       device_name: ${device_name}
       friendly_name: ${friendly_name}
 
+  halt-automations: !include packages/halt-automations.yaml
+
   wifi: !include 
     file: common/wifi.yaml
     vars:
       static_ip: ${static_ip}
-
+  
   logger: !include common/logger.yaml
-  # debug: !include common/debug.yaml
+  web-server: !include common/web-server.yaml
   reset: !include common/reset.yaml
   mqtt: !include common/mqtt.yaml
+  time: !include common/time.yaml
  
 globals:
   # State machine
@@ -46,10 +49,40 @@ globals:
     restore_value: false
     initial_value: "false"
   
-# TODO: Once we listen for the door garage sensor, we will need to implement the halt automations functionality
 mqtt:
   topic_prefix: "${topic_prefix}"
   on_message:
+    - topic: "zigbee2mqtt/laia-marc-porta-garatge-contact-sensor"
+      qos: 1
+      then:
+        - lambda: |-
+            if (id(halt_automations)) {
+              ESP_LOGI("MQTT", "Automations are halted, ignoring door sensor event.");
+              return;
+            }
+
+            StaticJsonDocument<256> doc;
+            auto error = deserializeJson(doc, x);
+            if (error) {
+              ESP_LOGW("MQTT", "Failed to parse JSON: %s", error.c_str());
+              return;
+            }
+
+            if (!doc.containsKey("contact")) {
+              ESP_LOGW("MQTT", "Missing 'contact' key in JSON payload");
+              return;
+            }
+
+            bool door_open = !doc["contact"].as<bool>();
+            auto now = id(sntp_time).now();
+
+            if (door_open && now.hour >= 21) {
+              if (!id(effect_active)) {  // Only toggle if not already active
+                ESP_LOGI("MQTT", "Garage door opened after 21:00, enabling effect.");
+                id(toggle_effect).execute();
+              }
+            }
+
     - topic: "${topic_prefix}/toggle/llum_barra"
       qos: 1
       then:
