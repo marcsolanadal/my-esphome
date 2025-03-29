@@ -15,6 +15,7 @@ i2c:
 sensor:
   # Power Sensor
   - platform: ade7953_i2c
+    id: power_sensor
     voltage:
       name: "${device_name} Voltage"
       entity_category: 'diagnostic'
