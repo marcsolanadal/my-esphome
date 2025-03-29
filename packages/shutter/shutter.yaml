@@ -41,21 +41,36 @@ globals:
     restore_value: yes
     initial_value: '0'  # Default: No offset
 
+  - id: shutter_direction
+    type: std::string
+    restore_value: no
+    initial_value: '"stopped"'  # Possible values: "up", "down", "stopped"
+
 text_sensor:
   - platform: template
     name: "Shutter Movement Status"
     id: movement_status
-    update_interval: 2s
+    update_interval: 1s
     lambda: |-
       // Get current values from the built-in sensors and use absolute values
       float current_a = abs(id(power_channel_2).state);  // Channel A (down) current
       float current_b = abs(id(power_channel_1).state);  // Channel B (up) current
 
       if (current_a > 1.0) {
-        return std::string("Moving Down");
+        id(shutter_direction) = "up";
+        return std::string("Moving Up");
       } else if (current_b > 1.0) {
-        return std::string("Moving Up"); 
+        id(shutter_direction) = "down";
+        return std::string("Moving Down"); 
       } else {
+        if (id(shutter_direction) == "up") {
+          id(relay_1).turn_off();
+          id(input_1_state) = 2;
+        } else if (id(shutter_direction) == "down") {
+          id(relay_2).turn_off();
+          id(input_1_state) = 0;
+        }
+        id(shutter_direction) = "stopped";
         return std::string("Stopped");
       }     
 
@@ -184,7 +199,6 @@ binary_sensor:
               case 0:  // State: Relay 1 ON (up)
                   id(relay_1).turn_on();
                   id(input_1_state) = 1;
-                  id(movement_detected) = false;  // Reset movement detection
                 break;
 
               case 1:  // State: Relay 1 OFF
@@ -195,7 +209,6 @@ binary_sensor:
               case 2:  // State: Relay 2 ON (down)
                   id(relay_2).turn_on();
                   id(input_1_state) = 3;
-                  id(movement_detected) = false;  // Reset movement detection
                 break;
 
               case 3:  // State: Relay 2 OFF
