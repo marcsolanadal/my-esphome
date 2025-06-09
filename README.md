@@ -1,6 +1,6 @@
 # MY ESPHOME
 
-A list of useful commads to get going with ESPHome in the command line.
+A list of useful commands to get going with ESPHome in the command line.
 
 - Install: `nix-shell -p esphome`
 - Compile: `esphome compile persiana-marc-nord.yaml`
@@ -19,8 +19,7 @@ esphome run persiana-marc-piscina.yaml --device 10.0.20.24
     nix-shell -p esphome --run "esphome run llum-cuina.yaml --device 10.0.20.34"
     ```
 
-
- NOTE: It's not necessary to add the device ip
+> NOTE: The Device IP is not necessary. I assume that the script know the IP defined in the `wifi.vars.staticIp`.
 ```sh
 nix-shell -p esphome --run "esphome run llum-cuina.yaml --device OTA"
 ```
@@ -30,3 +29,6 @@ nix-shell -p esphome --run "esphome run llum-cuina.yaml --device OTA"
     ```sh
     nix-shell -p esphome --run "esphome logs llum-cuina.yaml --device 10.0.20.34"
     ```
+
+
+

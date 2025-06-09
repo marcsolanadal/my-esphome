@@ -2,4 +2,4 @@ button:
   - platform: restart
     id: "restart_device"
     name: "${device_name} Restart"
-    entity_category: 'diagnostic'
+    entity_category: "diagnostic"
