@@ -17,7 +17,7 @@ packages:
     file: common/wifi.yaml
     vars:
       static_ip: ${static_ip}
-  
+
   logger: !include common/logger.yaml
   web-server: !include common/web-server.yaml
   reset: !include common/reset.yaml
