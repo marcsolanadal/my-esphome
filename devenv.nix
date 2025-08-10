@@ -4,8 +4,35 @@
   config,
   inputs,
   ...
-}: {
-  packages = with pkgs; [git esphome];
+}: let
+  SECRETS_FILE = "./devices/secrets.yaml";
+  SECRETS_FILE_ENC = "./devices/secrets.enc.yaml";
+in {
+  packages = with pkgs; [
+    git
+    esphome
+    age
+  ];
+
+  env.AGE_KEY_FILE = lib.mkDefault "~/.ssh/id_dev";
+
+  scripts.encrypt-secrets = {
+    description = "Encrypt secrets.yaml";
+    exec = ''
+      set -euo pipefail
+      age -R ./.age-recipients -o ${SECRETS_FILE_ENC} ${SECRETS_FILE}
+      echo "Encrypted → ${SECRETS_FILE_ENC}"
+    '';
+  };
+
+  scripts.decrypt-secrets = {
+    description = "Decrypt secrets.enc.yaml";
+    exec = ''
+      set -euo pipefail
+      age -d -i ${config.env.AGE_KEY_FILE} -o ${SECRETS_FILE} ${SECRETS_FILE_ENC}
+      echo "Decrypted → ${SECRETS_FILE}"
+    '';
+  };
 
   enterShell = ''
     cat <<'EOF'
@@ -18,11 +45,17 @@
               __/ |
              |___/
     EOF
+
+    if [ -f "${SECRETS_FILE_ENC}" ] && [ ! -f "${SECRETS_FILE}" ]; then
+      decrypt-secrets
+    fi
   '';
 
+  tasks = {
+    "dashboard:serve".exec = "esphome dashboard --open-ui --address localhost ./devices";
+  };
+
   git-hooks.hooks = {
-    # yamllint.enable = true;
-    # yamlfmt.enable = true;
     typos.enable = true;
   };
 }
