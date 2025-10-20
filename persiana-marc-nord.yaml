@@ -1,0 +1,9 @@
+packages:
+
+  shutter-prelude: !include 
+    file: ./packages/shutter/shutter-prelude.yaml
+    vars:
+      device_name: "persiana-marc-nord"
+      friendly_name: "persiana-marc-nord"
+      topic_prefix: "persiana_marc_nord"
+      static_ip: 10.0.20.25
