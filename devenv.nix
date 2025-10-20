@@ -5,12 +5,13 @@
   inputs,
   ...
 }: let
-  SECRETS_FILE = "./devices/secrets.yaml";
-  SECRETS_FILE_ENC = "./devices/secrets.enc.yaml";
+  SECRETS_FILE = "./secrets.yaml";
+  SECRETS_FILE_ENC = "./secrets.enc.yaml";
 in {
   packages = with pkgs; [
     git
     esphome
+    esptool
     age
   ];
 
@@ -52,7 +53,7 @@ in {
   '';
 
   tasks = {
-    "dashboard:serve".exec = "esphome dashboard --open-ui --address localhost ./devices";
+    "dashboard:serve".exec = "esphome dashboard --open-ui --address localhost .";
   };
 
   git-hooks.hooks = {
