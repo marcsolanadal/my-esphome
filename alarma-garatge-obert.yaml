@@ -11,7 +11,7 @@ packages:
   reset: !include common/reset.yaml
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
-  wifi: !include 
+  wifi: !include
     file: common/wifi.yaml
     vars:
       static_ip: 10.0.20.31

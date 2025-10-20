@@ -1,8 +1,0 @@
-packages:
-  shutter-prelude: !include 
-    file: ../packages/shutter/shutter-prelude.yaml
-    vars:
-      device_name: "persiana-marc-piscina"
-      friendly_name: "persiana-marc-piscina"
-      topic_prefix: "persiana_marc_piscina"
-      static_ip: 10.0.20.24
