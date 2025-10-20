@@ -1,0 +1,26 @@
+globals:
+  - id: heartbeat_active
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+text_sensor:
+  - platform: template
+    name: "❤️ beating?"
+    lambda: |-
+      if (id(heartbeat_active)) {
+        return {"ON"};
+      } else {
+        return {"OFF"};
+      }
+
+mqtt:
+
+interval:
+  - interval: 5min         
+    then:
+      - mqtt.publish:
+          topic: heartbeat  
+          payload: "ON"   
+          qos: 0       
+          retain: false   
