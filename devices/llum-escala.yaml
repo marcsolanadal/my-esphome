@@ -22,20 +22,12 @@ packages:
   web-server: !include common/web-server.yaml
   mqtt: !include common/mqtt.yaml
 
-# We want to stop all running scripts when any other button is pressed
+# Auto-off script to turn off the light after 5 minutes
 script:
-  - id: auto_off_3min
+  - id: auto_off_5min
     mode: restart
     then:
-      - script.stop: auto_off_30min
-      - delay: 3min
-      - switch.turn_off: relay
-
-  - id: auto_off_30min
-    mode: restart
-    then:
-      - script.stop: auto_off_3min
-      - delay: 30min
+      - delay: 5min
       - switch.turn_off: relay
 
 binary_sensor:
@@ -45,23 +37,20 @@ binary_sensor:
     filters:
       - delayed_on_off: 50ms
 
-    on_multi_click:
-      # Short press - toggle relay and turn off after 2 min
-      - timing:
-          - ON for at most 1s
-        then:
-          - logger.log: "${device_name} Button - TAP"
-          - switch.toggle: relay
-          - if:
-              condition:
-                switch.is_on: relay
-              then:
-                - script.execute: auto_off_3min
+    on_press:
+      - logger.log: "${device_name} Button - PRESS"
+      - switch.toggle: relay
+      - if:
+          condition:
+            switch.is_on: relay
+          then:
+            - script.execute: auto_off_5min
 
-      # Long press - toggle relay and turn off after 30 min
-      - timing:
-          - ON for at least 1s
-        then:
-          - logger.log: "${device_name} Button - HOLD"
-          - switch.toggle: relay
-          - script.execute: auto_off_30min
+mqtt:
+  on_message:
+    - topic: "ring/96e45c5c-a6da-4ac0-a706-bbd7d1c1e772/intercom/343ea4b1dfb8/lock/command"
+      qos: 0
+      then:
+        - logger.log: "${device_name} Ring doorbell triggered - turning on light"
+        - switch.turn_on: relay
+        - script.execute: auto_off_5min
