@@ -1,5 +1,5 @@
 debug:
-  update_interval: 5s
+  update_interval: 1min
 
 text_sensor:
   - platform: debug
@@ -17,4 +17,4 @@ sensor:
 
 # Logger must be at least debug (default)
 logger:
-  level: debug
+  level: INFO
