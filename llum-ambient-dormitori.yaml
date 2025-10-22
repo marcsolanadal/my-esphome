@@ -16,13 +16,15 @@ packages:
     vars:
       device_name: ${device_name}
 
-  # logger: !include common/logger.yaml
+  mqtt: !include 
+    file: common/mqtt.yaml
+    vars: 
+      device_name: ${device_name}
+
+  logger: !include common/logger.yaml
   web-server: !include common/web-server.yaml
   reset: !include common/reset.yaml
-  # mqtt: !include common/mqtt.yaml
   time: !include common/time.yaml
- 
-logger:
 
 light:
   - platform: monochromatic
