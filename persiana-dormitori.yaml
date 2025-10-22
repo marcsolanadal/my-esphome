@@ -1,30 +1,143 @@
+substitutions:
+  device_name: "persiana-dormitori"
+  device_id: "persiana_dormitori"
+  friendly_name: "Persiana Dormitori"
+  topic_prefix: "persiana_dormitori"
+
+packages:
+  # wifi: !include
+  #   file: common/wifi.yaml
+  #   vars:
+  #     device_name: ${device_name}
+  #
+  # mqtt: !include 
+  #   file: common/mqtt.yaml
+  #   vars: 
+  #     device_name: ${device_name}
+  #
+  # logger: !include common/logger.yaml
+  web-server: !include common/web-server.yaml
+  reset: !include common/reset.yaml
+  time: !include common/time.yaml
+
+  # Basic Config
 esphome:
-  name: persiana-dormitori
-  friendly_name: persiana-dormitori
+  name: ${device_name}
 
 esp8266:
   board: esp01_1m
 
-# Enable logging
-logger:
-
-# Enable Home Assistant API
-api:
-  encryption:
-    key: "WL/qTmj/zcuKpOQMozZrqUGlFKPbz1agrnMrU3z6z8g="
-
-ota:
-  - platform: esphome
-    password: "a359e0b625925bd5a1c1b6f3b44c76e1"
-
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  power_save_mode: HIGH # for ESP8266 LOW/HIGH are mixed up, https://github.com/esphome/issues/issues/1532i
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "Persiana-Dormitori"
-    password: "LJ776legueTq"
+    ssid: ${device_name}
+    password: !secret ap_password
+
+  # reboot_timeout: 0s
+
+  on_connect:
+    - lambda: |-
+        ESP_LOGD("debug", "----------------- Connected to WiFi!");
+  on_disconnect:
+    - lambda: |-
+        ESP_LOGD("debug", "----------------- Disconnected from WiFi!");
 
 captive_portal:
-    
+
+logger:
+
+ota:
+  - platform: esphome
+    id: my_ota
+    password: !secret ota_password
+
+i2c:
+  sda: GPIO12
+  scl: GPIO14
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal Strength"
+    update_interval: 60s
+
+  - platform: ade7953_i2c
+    irq_pin: GPIO16 # Prevent overheating by setting this
+    voltage:
+      name: ${device_name} Voltage
+    # On the Shelly 2.5 channels are mixed ch1=B ch2=A
+    current_a:
+      name: ${device_name} Current B
+    current_b:
+      name: ${device_name} Current A
+    active_power_a:
+      name: ${device_name} Active Power B
+      # active_power_a is normal, so don't multiply by -1
+    active_power_b:
+      name: ${device_name} Active Power A
+      # active_power_b is inverted, so take the absolute value
+      filters:
+        - lambda: return abs(x);
+    update_interval: 60s
+
+  # NTC Temperature
+  - platform: ntc
+    sensor: temp_resistance_reading
+    name: ${device_name} Temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    icon: "mdi:thermometer"
+    calibration:
+      b_constant: 3350
+      reference_resistance: 10kOhm
+      reference_temperature: 298.15K
+  - platform: resistance
+    id: temp_resistance_reading
+    sensor: temp_analog_reading
+    configuration: DOWNSTREAM
+    resistor: 32kOhm
+  - platform: adc
+    id: temp_analog_reading
+    pin: A0
+
+status_led:
+  pin:
+    number: GPIO0
+    inverted: yes
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+    name: ${device_name} Switch1
+    on_press:
+      then:
+        - switch.toggle: shelly_relay_1
+  - platform: gpio
+    pin:
+      number: GPIO5
+    name: ${device_name} Switch2
+    on_press:
+      then:
+        - switch.toggle: shelly_relay_2
+
+switch:
+  - platform: gpio
+    id: shelly_relay_1
+    name: ${device_name} Relay1
+    pin: GPIO4
+    icon: "mdi:electric-switch"
+    restore_mode: RESTORE_DEFAULT_OFF
+    # Ensure only one switch at a time is on (https://esphome.io/components/switch/gpio.html#interlocking)
+    interlock: &interlock_group [shelly_relay_1, shelly_relay_2]
+
+  - platform: gpio
+    id: shelly_relay_2
+    name: ${device_name} Relay2
+    pin: GPIO15
+    icon: "mdi:electric-switch"
+    restore_mode: RESTORE_DEFAULT_OFF
+    interlock: *interlock_group
