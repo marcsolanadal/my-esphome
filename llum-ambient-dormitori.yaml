@@ -34,7 +34,7 @@ binary_sensor:
   - platform: gpio
     pin: GPIO5
     id: light_0_touch
-    on_click:
+    on_release:
       then:
         - if:
             condition:
@@ -42,6 +42,6 @@ binary_sensor:
             then:
               - light.turn_on:
                   id: ${device_id}_white
-                  brightness: 1.0
+                  brightness: 0.4
             else:
               - light.turn_off: ${device_id}_white
