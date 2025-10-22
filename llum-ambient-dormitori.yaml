@@ -4,19 +4,13 @@ substitutions:
   friendly_name: "Llum Ambient Dormitori"
   topic_prefix: "llum_ambient_dormitori"
 
-esphome:
-  name: ${device_name}
-
-esp8266:
-  board: esp01_1m
-
 packages:
-  # shelly-rgbw2: !include
-  #   file: hardware/shelly-rgbw2.yaml
-  #   vars:
-  #     device_name: ${device_name}
-  #     friendly_name: ${friendly_name}
-  #
+  shelly-rgbw2: !include
+    file: hardware/shelly-rgbw2.yaml
+    vars:
+      device_name: ${device_name}
+      friendly_name: ${friendly_name}
+
   wifi: !include
     file: common/wifi.yaml
     vars:
@@ -32,39 +26,21 @@ logger:
 
 light:
   - platform: monochromatic
-    name: ${device_id}_ch1
+    name: ${device_name}_ch1
     id: ${device_id}_ch1
-    output: ${device_id}_out_ch1
+    output: pwm_r
   - platform: monochromatic
-    name: ${device_id}_ch2
+    name: ${device_name}_ch2
     id: ${device_id}_ch2
-    output: ${device_id}_out_ch2
+    output: pwm_g
   - platform: monochromatic
-    name: ${device_id}_ch3
+    name: ${device_name}_ch3
     id: ${device_id}_ch3
-    output: ${device_id}_out_ch3
+    output: pwm_b
   - platform: monochromatic
-    name: ${device_id}_ch4
+    name: ${device_name}_ch4
     id: ${device_id}_ch4
-    output: ${device_id}_out_ch4
-# Example output entry
-output:
-  - platform: esp8266_pwm
-    id: ${device_id}_out_ch1
-    pin: GPIO12
-    frequency: 1000 Hz
-  - platform: esp8266_pwm
-    id: ${device_id}_out_ch2
-    pin: GPIO15
-    frequency: 1000 Hz
-  - platform: esp8266_pwm
-    id: ${device_id}_out_ch3
-    pin: GPIO14
-    frequency: 1000 Hz
-  - platform: esp8266_pwm
-    id: ${device_id}_out_ch4
-    pin: GPIO4
-    frequency: 1000 Hz
+    output: pwm_w
 
 binary_sensor:
   - platform: gpio
