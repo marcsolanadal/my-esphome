@@ -15,14 +15,11 @@ Welcome to my cozy smart home setup! 🌟 This repository contains all my ESPHom
 ## 🚀 Quick Start
 
 ```bash
-# Install ESPHome
-nix-shell -p esphome
-
 # Compile a device
 esphome compile devices/llum-cuina.yaml
 
 # Flash over-the-air 📡
-esphome run devices/llum-cuina.yaml --device 10.0.20.34
+esphome run devices/llum-cuina.yaml --device OTA
 
 # Start dashboard 🎛️
 devenv tasks run dashboard:serve
@@ -46,11 +43,11 @@ devenv tasks run dashboard:serve
 # Check config 🔍
 esphome config devices/your-device.yaml
 
-# View logs 👀
-esphome logs devices/your-device.yaml --device IP
-
 # Flash via USB 🔌
 esphome run devices/your-device.yaml --device /dev/ttyUSB0
+
+# View logs 👀
+esphome logs devices/your-device.yaml --device OTA
 ```
 
 ## 🎯 Pro Tips
