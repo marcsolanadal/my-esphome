@@ -1,42 +1,64 @@
-# MY ESPHOME
+# 🏠 My Smart Home ESPHome Hub
 
-A list of useful commands to get going with ESPHome in the command line.
+Welcome to my cozy smart home setup! 🌟 This repository contains all my ESPHome device configurations for controlling lights, shutters, and other smart devices around the house.
 
-- Install: `nix-shell -p esphome`
-- Compile: `esphome compile persiana-marc-nord.yaml`
-- Compile + OTA: `esphome run persiana-marc-nord.yaml --device 10.0.20.25`
+## 🗂️ Project Structure
 
-## Dashboard
+```
+📁 devices/           # 🔌 All your smart device configs
+📁 common/            # 🛠️ Shared configurations (wifi, mqtt, etc.)
+📁 hardware/          # 🔧 Hardware-specific templates (Shelly devices)
+📁 packages/          # 📦 Reusable functionality packages
+🔐 secrets.yaml      # Your secret credentials (gitignored)
+```
 
-To open the dashboard we use the task runner that comes with devenv.
+## 🚀 Quick Start
 
 ```bash
+# Install ESPHome
+nix-shell -p esphome
+
+# Compile a device
+esphome compile devices/llum-cuina.yaml
+
+# Flash over-the-air 📡
+esphome run devices/llum-cuina.yaml --device 10.0.20.34
+
+# Start dashboard 🎛️
 devenv tasks run dashboard:serve
 ```
 
-## Shortcuts
+## 🏡 My Devices
 
-```sh
-esphome run llum-cuina.yaml --device 10.0.20.34
-esphome run persiana-marc-piscina.yaml --device 10.0.20.24
+### 💡 Lights
+- **llum-cuina** - Kitchen RGBW with effects
+- **llum-ambient-dormitori** - Bedroom mood lighting
+- **llum-escala** - Auto stairs light
+- **llum-ventilador-*** - Fan lights
+
+### 🪟 Shutters
+- **persiana-dormitori** - Bedroom shutter
+- **persiana-marc-*** - Living area shutters
+
+## 🛠️ Useful Commands
+
+```bash
+# Check config 🔍
+esphome config devices/your-device.yaml
+
+# View logs 👀
+esphome logs devices/your-device.yaml --device IP
+
+# Flash via USB 🔌
+esphome run devices/your-device.yaml --device /dev/ttyUSB0
 ```
 
-- OTA firmware upgrade
+## 🎯 Pro Tips
 
-```sh
-nix-shell -p esphome --run "esphome run llum-cuina.yaml --device 10.0.20.34"
-```
+- 💡 Use `esphome config` to validate befhostnameore flashing
+- 🔄 OTA updates save climbing ladders!
+- 📊 Web interface at `http://device-name.local`
 
-> NOTE: The Device IP is not necessary. I assume that the script know the IP defined in the `wifi.vars.staticIp`.
-```sh
-nix-shell -p esphome --run "esphome run llum-cuina.yaml --device OTA"
-```
+---
 
-- Show logs of a specific device
-
-    ```sh
-    nix-shell -p esphome --run "esphome logs llum-cuina.yaml --device 10.0.20.34"
-    ```
-
-
-
+*Happy automating! 🏠✨*
