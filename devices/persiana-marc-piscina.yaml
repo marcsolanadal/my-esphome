@@ -1,5 +1,5 @@
 packages:
-  shutter-prelude: !include 
+  shutter-prelude: !include
     file: ../packages/shutter/shutter-prelude.yaml
     vars:
       device_name: "persiana-marc-piscina"

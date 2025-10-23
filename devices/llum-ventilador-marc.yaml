@@ -8,15 +8,15 @@ substitutions:
 
 packages:
 
-  shelly-plus-2: !include hardware/shelly-plus-2.yaml
-  debug: !include common/debug.yaml
-  reset: !include common/reset.yaml
-  time: !include common/time.yaml
-  web-server: !include common/web-server.yaml
-  mqtt: !include common/mqtt.yaml
+  shelly-plus-2: !include ../hardware/shelly-plus-2.yaml
+  debug: !include ../common/debug.yaml
+  reset: !include ../common/reset.yaml
+  time: !include ../common/time.yaml
+  web-server: !include ../common/web-server.yaml
+  mqtt: !include ../common/mqtt.yaml
 
   wifi: !include
-    file: common/wifi.yaml
+    file: ../common/wifi.yaml
     vars:
       static_ip: 10.0.20.31
 

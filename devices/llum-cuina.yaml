@@ -6,23 +6,23 @@ substitutions:
 
 packages:
   shelly-plus-rgbw-pm: !include
-    file: hardware/shelly-plus-rgbw-pm.yaml
+    file: ../hardware/shelly-plus-rgbw-pm.yaml
     vars:
       device_name: ${device_name}
       friendly_name: ${friendly_name}
 
-  halt-automations: !include packages/halt-automations.yaml
+  halt-automations: !include ../packages/halt-automations.yaml
 
   wifi: !include
-    file: common/wifi.yaml
+    file: ../common/wifi.yaml
     vars:
       static_ip: ${static_ip}
 
-  logger: !include common/logger.yaml
-  web-server: !include common/web-server.yaml
-  reset: !include common/reset.yaml
-  mqtt: !include common/mqtt.yaml
-  time: !include common/time.yaml
+  logger: !include ../common/logger.yaml
+  web-server: !include ../common/web-server.yaml
+  reset: !include ../common/reset.yaml
+  mqtt: !include ../common/mqtt.yaml
+  time: !include ../common/time.yaml
  
 globals:
   # State machine

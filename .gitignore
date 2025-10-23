@@ -6,6 +6,10 @@
 /.esphome/
 /secrets.yaml
 /src/.gitignore
+
+# Ignore ESPHome build files
+/devices/.esphome/
+
 # Devenv
 .devenv*
 devenv.local.nix

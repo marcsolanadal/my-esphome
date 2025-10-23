@@ -1,7 +1,7 @@
 packages:
 
-  shutter-prelude: !include 
-    file: ./packages/shutter/shutter-prelude.yaml
+  shutter-prelude: !include
+    file: ../packages/shutter/shutter-prelude.yaml
     vars:
       device_name: "persiana-marc-nord"
       friendly_name: "persiana-marc-nord"

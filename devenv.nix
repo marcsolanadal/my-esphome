@@ -53,7 +53,7 @@ in {
   '';
 
   tasks = {
-    "dashboard:serve".exec = "esphome dashboard --open-ui --address localhost .";
+    "dashboard:serve".exec = "esphome dashboard --open-ui --address localhost ./devices";
   };
 
   git-hooks.hooks = {
