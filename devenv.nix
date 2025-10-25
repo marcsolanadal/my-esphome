@@ -13,6 +13,8 @@ in {
     esphome
     esptool
     age
+    lolcat
+    figlet
   ];
 
   env.AGE_KEY_FILE = lib.mkDefault "~/.ssh/id_dev";
@@ -36,17 +38,8 @@ in {
   };
 
   enterShell = ''
-    cat <<'EOF'
-    __  ___         _____  _____ ______  _   _
-    |  \/  |        |  ___|/  ___|| ___ \| | | |
-    | .  . | _   _  | |__  \ `--. | |_/ /| |_| |  ___   _ __ ___    ___
-    | |\/| || | | | |  __|  `--. \|  __/ |  _  | / _ \ | '_ ` _ \  / _ \
-    | |  | || |_| | | |___ /\__/ /| |    | | | || (_) || | | | | ||  __/
-    \_|  |_/ \__, | \____/ \____/ \_|    \_| |_/ \___/ |_| |_| |_| \___|
-              __/ |
-             |___/
-    EOF
-
+    figlet MyESPHome | lolcat
+    
     if [ -f "${SECRETS_FILE_ENC}" ] && [ ! -f "${SECRETS_FILE}" ]; then
       decrypt-secrets
     fi
