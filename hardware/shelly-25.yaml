@@ -1,0 +1,107 @@
+# Shelly 2.5 Hardware Configuration
+# ESP8266-based relay controller with current sensing and temperature monitoring
+# Compatible with blind/shutter controllers and dual relay applications
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+
+esp8266:
+  board: esp01_1m
+
+# Status LED (built-in)
+status_led:
+  pin:
+    number: GPIO0
+    inverted: yes
+
+# I2C Bus for power monitoring
+i2c:
+  sda: GPIO12
+  scl: GPIO14
+
+# Power monitoring sensor (ADE7953 chip)
+sensor:
+  # Power monitoring via ADE7953
+  - platform: ade7953_i2c
+    irq_pin: GPIO16
+    voltage:
+      name: "${friendly_name} Mains Voltage"
+      id: mains_voltage
+      internal: true
+      filters:
+        - throttle: 5s
+    current_a:
+      name: "${friendly_name} Channel A Current"
+      id: open_current
+      internal: true
+    current_b:
+      name: "${friendly_name} Channel B Current"
+      id: close_current
+      internal: true
+    update_interval: 0.5s
+
+  # NTC Temperature sensor chain
+  - platform: ntc
+    sensor: temp_resistance_reading
+    name: "${friendly_name} Temperature"
+    id: ntc_temperature
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    calibration:
+      b_constant: 3350
+      reference_resistance: 10kOhm
+      reference_temperature: 298.15K
+
+  - platform: resistance
+    id: temp_resistance_reading
+    sensor: temp_analog_reading
+    configuration: DOWNSTREAM
+    resistor: 32kOhm
+    internal: true
+
+  - platform: adc
+    id: temp_analog_reading
+    pin: A0
+    update_interval: 30s
+    internal: true
+
+# Physical input buttons/switches
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO13
+    name: "${friendly_name} Input A"
+    id: input_a
+
+  - platform: gpio
+    pin:
+      number: GPIO5
+    name: "${friendly_name} Input B"
+    id: input_b
+
+# Physical relay outputs
+switch:
+  # Emergency shutdown capability
+  - platform: shutdown
+    id: _shutdown
+    name: "${friendly_name} Shutdown"
+
+  # Relay A (typically open/up)
+  - platform: gpio
+    id: relay_a
+    name: "${friendly_name} Relay A"
+    pin: GPIO15
+    restore_mode: RESTORE_DEFAULT_OFF
+    interlock: &interlock [relay_a, relay_b]
+    interlock_wait_time: 200ms
+
+  # Relay B (typically close/down)
+  - platform: gpio
+    id: relay_b
+    name: "${friendly_name} Relay B"
+    pin: GPIO4
+    restore_mode: RESTORE_DEFAULT_OFF
+    interlock: *interlock
+    interlock_wait_time: 200ms
