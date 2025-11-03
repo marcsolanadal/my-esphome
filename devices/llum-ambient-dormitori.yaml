@@ -26,11 +26,39 @@ packages:
   reset: !include ../common/reset.yaml
   time: !include ../common/time.yaml
 
+  halt-automations: !include
+    file: ../packages/halt-automations.yaml
+
 light:
   - platform: monochromatic
     name: ${device_name}_white
     id: ${device_id}_white
     output: pwm_w
+
+script:
+  - id: turn_on_with_time_based_brightness
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(halt_automations);'
+          then:
+            - if:
+                condition:
+                  or:
+                    - lambda: 'return id(sntp_time).now().hour >= 22;'
+                    - lambda: 'return id(sntp_time).now().hour < 6;'
+                then:
+                  - light.turn_on:
+                      id: ${device_id}_white
+                      brightness: 0.2
+                else:
+                  - light.turn_on:
+                      id: ${device_id}_white
+                      brightness: 0.4
+          else:
+            - light.turn_on:
+                id: ${device_id}_white
+                brightness: 0.4
 
 binary_sensor:
   - platform: gpio
@@ -42,8 +70,6 @@ binary_sensor:
             condition:
               light.is_off: ${device_id}_white
             then:
-              - light.turn_on:
-                  id: ${device_id}_white
-                  brightness: 0.4
+              - script.execute: turn_on_with_time_based_brightness
             else:
               - light.turn_off: ${device_id}_white
