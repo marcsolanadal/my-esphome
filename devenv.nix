@@ -7,11 +7,12 @@
 }: let
   SECRETS_FILE = "./secrets.yaml";
   SECRETS_FILE_ENC = "./secrets.enc.yaml";
+  pkgs-unstable = import inputs.nixpkgs-unstable { system = pkgs.stdenv.system; };
 in {
   packages = with pkgs; [
     git
-    esphome
-    esptool
+    pkgs-unstable.esphome
+    pkgs-unstable.esptool
     age
     lolcat
     figlet
