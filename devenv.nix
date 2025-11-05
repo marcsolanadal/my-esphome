@@ -38,6 +38,33 @@ in {
     '';
   };
 
+  scripts.mqttui = {
+    description = "Launch MQTT UI with credentials from secrets";
+    packages = [ pkgs.mqttui ];
+    exec = ''
+      set -euo pipefail
+      if [ ! -f "${SECRETS_FILE}" ]; then
+        echo "Error: ${SECRETS_FILE} not found. Please decrypt secrets first."
+        exit 1
+      fi
+
+      MQTT_IP=$(grep "mqtt_broker_ip:" ${SECRETS_FILE} | cut -d'"' -f2)
+      MQTT_USER=$(grep "mqtt_broker_username:" ${SECRETS_FILE} | cut -d'"' -f2)
+      MQTT_PASS=$(grep "mqtt_broker_password:" ${SECRETS_FILE} | cut -d'"' -f2)
+
+      echo "Connecting to MQTT broker at $MQTT_IP as $MQTT_USER..."
+      exec mqttui --broker "mqtt://$MQTT_IP" --username "$MQTT_USER" --password "$MQTT_PASS" "$@"
+    '';
+  };
+
+  tasks = {
+    "esphome:dashboard".exec = "esphome dashboard --open-ui --address localhost ./devices";
+  };
+
+  git-hooks.hooks = {
+    typos.enable = true;
+  };
+
   enterShell = ''
     figlet MyESPHome | lolcat
     
@@ -45,12 +72,4 @@ in {
       decrypt-secrets
     fi
   '';
-
-  tasks = {
-    "dashboard:serve".exec = "esphome dashboard --open-ui --address localhost ./devices";
-  };
-
-  git-hooks.hooks = {
-    typos.enable = true;
-  };
 }
