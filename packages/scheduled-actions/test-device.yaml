@@ -1,0 +1,344 @@
+# Test Device Configuration for Scheduled Actions Package
+#
+# Based on persiana-dormitori structure for realistic testing
+# This demonstrates scheduled actions integration with a shutter device
+#
+# To use this test device:
+# 1. Copy this file to your devices/ folder
+# 2. Rename it (e.g., persiana-scheduled-test.yaml)
+# 3. Update the substitutions for your device
+# 4. Flash to your hardware
+
+substitutions:
+  device_name: "scheduled-actions-test"
+  device_id: "scheduled_actions_test"
+  friendly_name: "Scheduled Actions Test"
+  topic_prefix: "scheduled_actions_test"
+
+packages:
+  # Hardware configuration (Shelly 2.5 like persiana-dormitori)
+  hardware: !include
+    file: ../../hardware/shelly-25.yaml
+    vars:
+      device_name: ${device_name}
+      friendly_name: ${friendly_name}
+
+  # Common functionality (same as persiana-dormitori)
+  wifi: !include
+    file: ../../common/wifi.yaml
+    vars:
+      device_name: ${device_name}
+
+  mqtt: !include
+    file: ../../common/mqtt.yaml
+    vars:
+      device_name: ${device_name}
+
+  logger: !include ../../common/logger.yaml
+  web-server: !include ../../common/web-server.yaml
+  reset: !include ../../common/reset.yaml
+  time: !include ../../common/time.yaml
+
+  # Include the scheduled actions package
+  scheduled_actions: !include
+    file: ./scheduled-actions.yaml
+    vars:
+      topic_prefix: ${topic_prefix}
+
+# Device-specific WiFi configuration (same pattern as persiana-dormitori)
+wifi:
+  power_save_mode: HIGH # for ESP8266 LOW/HIGH are mixed up
+
+# Device-specific sensor logic (adapted from persiana-dormitori)
+sensor:
+  # Temperature safety monitoring
+  - platform: template
+    name: "Test Shutter Temperature Monitor"
+    lambda: |-
+      // Reference the NTC temperature sensor from hardware package
+      if (id(ntc_temperature).has_state()) {
+        return id(ntc_temperature).state;
+      }
+      return NAN;
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    update_interval: 30s
+    on_value_range:
+      above: 90
+      then: # Security shutdown by overheating
+        - switch.turn_on: _shutdown
+
+# Device-specific input logic (adapted from persiana-dormitori)
+binary_sensor:
+  - platform: template
+    name: "Test Open Switch"
+    id: open_switch
+    lambda: |-
+      return id(input_a).state;
+    on_state:
+      - if:
+          condition:
+            binary_sensor.is_on: open_switch
+          then:
+            - cover.open: blind
+          else:
+            - cover.stop: blind
+
+  - platform: template
+    name: "Test Close Switch"
+    id: close_switch
+    lambda: |-
+      return id(input_b).state;
+    on_state:
+      - if:
+          condition:
+            binary_sensor.is_on: close_switch
+          then:
+            - cover.close: blind
+          else:
+            - cover.stop: blind
+
+# Shutter control logic (adapted from persiana-dormitori)
+cover:
+  - platform: current_based
+    name: "Test Shutter"
+    id: blind
+    device_class: shutter
+
+    # Use current sensors from hardware package
+    open_sensor: open_current
+    open_moving_current_threshold: 0.5
+    open_duration: 12s
+    open_action:
+      - switch.turn_on: relay_a  # Hardware package relay ID
+
+    close_sensor: close_current
+    close_moving_current_threshold: 0.5
+    close_duration: 10s
+    close_action:
+      - switch.turn_on: relay_b  # Hardware package relay ID
+
+    stop_action:
+      - switch.turn_off: relay_a  # Hardware package relay ID
+      - switch.turn_off: relay_b  # Hardware package relay ID
+
+    # Device-specific behavior parameters
+    obstacle_rollback: 30%
+    start_sensing_delay: 0.8s
+    malfunction_detection: true
+    malfunction_action:
+      then:
+        - logger.log: "Test Shutter: Malfunction detected. Relay welded."
+
+# Override the scheduled_action_trigger script to handle device-specific actions
+script:
+  - id: scheduled_action_trigger
+    then:
+      - lambda: |-
+          ESP_LOGI("scheduled_actions", "Processing action - ID: %s, Data: %s",
+                   id(current_action_id).c_str(), id(current_action_data).c_str());
+
+          // Parse the action JSON
+          StaticJsonDocument<512> action_doc;
+          DeserializationError error = deserializeJson(action_doc, id(current_action_data));
+
+          if (error) {
+            ESP_LOGW("scheduled_actions", "Failed to parse action JSON: %s", error.c_str());
+            return;
+          }
+
+          // Check device type and handle accordingly
+          if (action_doc.containsKey("device")) {
+            std::string device_type = action_doc["device"].as<std::string>();
+
+            if (device_type == "shutter") {
+              // Handle shutter position commands
+              if (action_doc.containsKey("position")) {
+                float position = action_doc["position"].as<float>();
+                ESP_LOGI("scheduled_actions", "Setting shutter position to: %.1f%%", position);
+
+                // Convert percentage to ESPHome cover position (0.0 = closed, 1.0 = open)
+                float cover_position = position / 100.0f;
+
+                // Execute shutter position command (using 'blind' ID like persiana-dormitori)
+                auto call = id(blind).make_call();
+                call.set_position(cover_position);
+                call.perform();
+
+              // Handle shutter commands (open, close, stop)
+              } else if (action_doc.containsKey("command")) {
+                std::string command = action_doc["command"].as<std::string>();
+                ESP_LOGI("scheduled_actions", "Executing shutter command: %s", command.c_str());
+
+                if (command == "open") {
+                  auto call = id(blind).make_call();
+                  call.set_command_open();
+                  call.perform();
+                } else if (command == "close") {
+                  auto call = id(blind).make_call();
+                  call.set_command_close();
+                  call.perform();
+                } else if (command == "stop") {
+                  auto call = id(blind).make_call();
+                  call.set_command_stop();
+                  call.perform();
+                } else {
+                  ESP_LOGW("scheduled_actions", "Unknown shutter command: %s", command.c_str());
+                }
+              } else {
+                ESP_LOGW("scheduled_actions", "Shutter action missing position or command");
+              }
+
+            } else if (device_type == "light") {
+              // Example: Handle light actions
+              if (action_doc.containsKey("state")) {
+                std::string state = action_doc["state"].as<std::string>();
+                ESP_LOGI("scheduled_actions", "Setting light state: %s", state.c_str());
+
+                // Note: Adjust this to match your actual light component ID
+                // if (state == "on") {
+                //   id(my_light).turn_on();
+                // } else {
+                //   id(my_light).turn_off();
+                // }
+              }
+
+            } else {
+              ESP_LOGW("scheduled_actions", "Unknown device type: %s", device_type.c_str());
+            }
+          } else {
+            ESP_LOGW("scheduled_actions", "Action missing device type");
+          }
+
+# Test automation to demonstrate scheduled actions
+# Trigger via MQTT: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/test-schedule" -m ""
+automation:
+  - alias: Setup Test Scheduled Actions
+    trigger:
+      - platform: mqtt
+        topic: ${topic_prefix}/test-schedule
+    action:
+      - lambda: |-
+          ESP_LOGI("test", "Setting up test scheduled actions");
+
+          // Create a comprehensive test action queue
+          std::string test_queue = R"([
+            {
+              "id": "morning_open",
+              "time": "2025-01-16T08:00:00Z",
+              "action": {
+                "device": "shutter",
+                "command": "open"
+              }
+            },
+            {
+              "id": "lunch_position",
+              "time": "2025-01-16T12:30:00Z",
+              "action": {
+                "device": "shutter",
+                "position": 75
+              }
+            },
+            {
+              "id": "afternoon_shade",
+              "time": "2025-01-16T15:00:00Z",
+              "action": {
+                "device": "shutter",
+                "position": 50
+              }
+            },
+            {
+              "id": "evening_close",
+              "time": "2025-01-16T20:00:00Z",
+              "action": {
+                "device": "shutter",
+                "command": "close"
+              },
+              "recurring": {
+                "type": "daily",
+                "days": ["mon", "tue", "wed", "thu", "fri"]
+              }
+            }
+          ])";
+
+          // Send the test queue to scheduled actions
+          id(mqtt_client).publish("${topic_prefix}/action-queue", test_queue);
+          ESP_LOGI("test", "Test queue with %d actions published", 4);
+
+# Additional test automation for immediate testing
+# Trigger via MQTT: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/test-immediate" -m ""
+  - alias: Test Immediate Action
+    trigger:
+      - platform: mqtt
+        topic: ${topic_prefix}/test-immediate
+    action:
+      - lambda: |-
+          ESP_LOGI("test", "Setting up immediate test action");
+
+          // Get current time and add 30 seconds for immediate execution
+          auto current_time = id(sntp_time).now();
+          current_time.increment_second(30);
+
+          char future_time[32];
+          sprintf(future_time, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                  current_time.year, current_time.month, current_time.day_of_month,
+                  current_time.hour, current_time.minute, current_time.second);
+
+          // Create immediate test action
+          std::string immediate_action = std::string(R"([
+            {
+              "id": "immediate_test_") + to_string(current_time.timestamp) + R"(",
+              "time": ")" + future_time + R"(",
+              "action": {
+                "device": "shutter",
+                "position": 25
+              }
+            }
+          ])";
+
+          id(mqtt_client).publish("${topic_prefix}/action-queue", immediate_action);
+          ESP_LOGI("test", "Immediate action scheduled for %s", future_time);
+
+# Status monitoring automation - logs queue status every 5 minutes
+# Useful for debugging and monitoring
+  - alias: Log Queue Status
+    trigger:
+      - platform: interval
+        minutes: 5
+    action:
+      - lambda: |-
+          ESP_LOGI("status", "Queue Status - Last Action: %s", id(last_action_time).c_str());
+
+          // Request detailed status via MQTT
+          id(mqtt_client).publish("${topic_prefix}/scheduled-actions/status", "");
+
+# Example of how to clear the queue via automation if needed
+# Trigger via MQTT: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/clear-queue" -m ""
+  - alias: Clear Action Queue
+    trigger:
+      - platform: mqtt
+        topic: ${topic_prefix}/clear-queue
+    action:
+      - lambda: |-
+          ESP_LOGI("test", "Clearing action queue via automation");
+          id(mqtt_client).publish("${topic_prefix}/scheduled-actions/clear", "");
+
+# Additional logging for debugging
+logger:
+  level: DEBUG
+  logs:
+    scheduled_actions: DEBUG
+
+# Note: This test configuration assumes you have:
+# 1. A Shelly 2.5 device (or compatible hardware)
+# 2. A shutter/blind device with ID 'blind' (defined in cover section)
+# 3. MQTT broker configured and accessible
+# 4. Time synchronization working (sntp_time)
+# 5. Network connectivity and proper WiFi credentials in secrets.yaml
+#
+# Common MQTT test commands:
+# - Set test queue: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/test-schedule" -m ""
+# - Immediate test: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/test-immediate" -m ""
+# - Clear queue: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/clear-queue" -m ""
+# - Get status: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/scheduled-actions/status" -m ""
+# - Dump queue: mosquitto_pub -h YOUR_BROKER -t "scheduled_actions_test/scheduled-actions/dump" -m ""

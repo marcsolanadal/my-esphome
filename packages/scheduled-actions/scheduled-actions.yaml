@@ -1,0 +1,426 @@
+# ESPHome Scheduled Actions Package
+# Provides MQTT-based action scheduling with persistence and recurring support
+#
+# Usage:
+#   packages:
+#     scheduled_actions: !include
+#       file: ../packages/scheduled-actions/scheduled-actions.yaml
+#       vars:
+#         topic_prefix: ${topic_prefix}
+#
+#   script:
+#     - id: scheduled_action_trigger
+#       then:
+#         - lambda: |-
+#             // Handle action execution
+#             ESP_LOGD("scheduled_actions", "Executing action: %s", id(current_action_data).c_str());
+
+# Global variables for queue storage and state management
+globals:
+  # Main action queue stored as JSON string (persisted to flash)
+  - id: action_queue_storage
+    type: std::string
+    restore_value: true
+    initial_value: "[]"
+
+
+  # Last action execution timestamp
+  - id: last_action_time
+    type: std::string
+    restore_value: true
+    initial_value: ""
+
+  # Processing state flags
+  - id: queue_processing_active
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+  # Current action data (used during action execution)
+  - id: current_action_id
+    type: std::string
+    restore_value: false
+    initial_value: ""
+
+  - id: current_action_data
+    type: std::string
+    restore_value: false
+    initial_value: ""
+
+# MQTT subscription for receiving action queue updates
+mqtt:
+  on_message:
+    - topic: ${topic_prefix}/action-queue
+      then:
+        - lambda: |-
+            ESP_LOGD("scheduled_actions", "Received action queue message: %s", x.c_str());
+
+            // Parse and validate JSON
+            StaticJsonDocument<2048> doc;
+            DeserializationError error = deserializeJson(doc, x.c_str());
+
+            if (error) {
+              ESP_LOGW("scheduled_actions", "JSON parsing failed: %s", error.c_str());
+              id(mqtt_client).publish("${topic_prefix}/scheduled-actions/error",
+                                    ("JSON parsing failed: " + std::string(error.c_str())).c_str());
+              return;
+            }
+
+            // Validate it's an array
+            if (!doc.is<JsonArray>()) {
+              ESP_LOGW("scheduled_actions", "Expected JSON array, got different type");
+              id(mqtt_client).publish("${topic_prefix}/scheduled-actions/error", "Expected JSON array");
+              return;
+            }
+
+            JsonArray actions = doc.as<JsonArray>();
+            int valid_actions = 0;
+            int total_actions = actions.size();
+
+            // Validate each action has required fields
+            for (JsonObject action : actions) {
+              if (action.containsKey("id") && action.containsKey("time") && action.containsKey("action")) {
+                // Validate time format (basic ISO 8601 check)
+                const char* time_str = action["time"];
+                if (strlen(time_str) >= 19 && time_str[4] == '-' && time_str[7] == '-' &&
+                    time_str[10] == 'T' && time_str[13] == ':' && time_str[16] == ':') {
+                  valid_actions++;
+                } else {
+                  ESP_LOGW("scheduled_actions", "Invalid time format in action %s", action["id"].as<const char*>());
+                }
+              } else {
+                ESP_LOGW("scheduled_actions", "Action missing required fields (id, time, action)");
+              }
+            }
+
+            if (valid_actions == 0 && total_actions > 0) {
+              ESP_LOGW("scheduled_actions", "No valid actions found in queue");
+              id(mqtt_client).publish("${topic_prefix}/scheduled-actions/error", "No valid actions found");
+              return;
+            }
+
+            // Store the validated queue
+            id(action_queue_storage) = x.c_str();
+
+            ESP_LOGI("scheduled_actions", "Queue updated: %d valid actions out of %d total",
+                     valid_actions, total_actions);
+
+            // Publish confirmation with stats
+            std::string status = "{\"status\":\"queue_updated\",\"valid_actions\":" +
+                               to_string(valid_actions) + ",\"total_actions\":" + to_string(total_actions) + "}";
+            id(mqtt_client).publish("${topic_prefix}/scheduled-actions/status", status);
+
+    # Clear queue command
+    - topic: ${topic_prefix}/scheduled-actions/clear
+      then:
+        - lambda: |-
+            ESP_LOGI("scheduled_actions", "Clearing action queue");
+            id(action_queue_storage) = "[]";
+            id(mqtt_client).publish("${topic_prefix}/scheduled-actions/status", "queue_cleared");
+
+    # Status request
+    - topic: ${topic_prefix}/scheduled-actions/status
+      then:
+        - lambda: |-
+            ESP_LOGD("scheduled_actions", "Publishing queue status");
+
+            // Get current queue for detailed status
+            std::string queue_json = id(action_queue_storage);
+            std::string next_action = "none";
+
+            if (queue_json != "[]" && !queue_json.empty()) {
+              StaticJsonDocument<2048> doc;
+              DeserializationError error = deserializeJson(doc, queue_json);
+              if (!error) {
+                JsonArray actions = doc.as<JsonArray>();
+                std::string earliest_time = "";
+
+                // Find next action
+                for (JsonObject action : actions) {
+                  const char* action_time = action["time"];
+                  if (action_time) {
+                    if (earliest_time.empty() || strcmp(action_time, earliest_time.c_str()) < 0) {
+                      earliest_time = action_time;
+                      next_action = std::string(action["id"].as<const char*>()) + "@" + earliest_time;
+                    }
+                  }
+                }
+              }
+            }
+
+            // Calculate current queue count
+            int current_queue_count = 0;
+            if (queue_json != "[]" && !queue_json.empty()) {
+              StaticJsonDocument<2048> count_doc;
+              DeserializationError count_error = deserializeJson(count_doc, queue_json);
+              if (!count_error) {
+                JsonArray count_actions = count_doc.as<JsonArray>();
+                current_queue_count = count_actions.size();
+              }
+            }
+
+            std::string status = "{\"queue_count\":" + to_string(current_queue_count) +
+                               ",\"next_action\":\"" + next_action +
+                               "\",\"last_action\":\"" + id(last_action_time) +
+                               "\",\"processing\":" + (id(queue_processing_active) ? "true" : "false") + "}";
+            id(mqtt_client).publish("${topic_prefix}/scheduled-actions/info", status);
+
+    # Dump full queue
+    - topic: ${topic_prefix}/scheduled-actions/dump
+      then:
+        - lambda: |-
+            ESP_LOGD("scheduled_actions", "Dumping full queue");
+            std::string queue_json = id(action_queue_storage);
+            if (queue_json.empty()) {
+              queue_json = "[]";
+            }
+            id(mqtt_client).publish("${topic_prefix}/scheduled-actions/queue-dump", queue_json);
+
+
+# Template sensors for monitoring
+
+text_sensor:
+  - platform: template
+    name: "${friendly_name} Next Scheduled Action"
+    id: scheduled_actions_next_action_sensor
+    lambda: |-
+      std::string queue_json = id(action_queue_storage);
+      if (queue_json == "[]" || queue_json.empty()) {
+        return std::string("No actions scheduled");
+      }
+
+      StaticJsonDocument<2048> doc;
+      DeserializationError error = deserializeJson(doc, queue_json);
+      if (error) {
+        return std::string("Queue parse error");
+      }
+
+      JsonArray actions = doc.as<JsonArray>();
+      std::string next_time = "";
+      std::string next_id = "";
+
+      // Find the earliest scheduled action
+      for (JsonObject action : actions) {
+        const char* action_time = action["time"];
+        const char* action_id = action["id"];
+
+        if (action_time && action_id) {
+          if (next_time.empty() || strcmp(action_time, next_time.c_str()) < 0) {
+            next_time = action_time;
+            next_id = action_id;
+          }
+        }
+      }
+
+      if (next_time.empty()) {
+        return std::string("No valid actions");
+      }
+
+      return next_id + " at " + next_time;
+    update_interval: 60s
+
+  - platform: template
+    name: "${friendly_name} Last Action Executed"
+    id: scheduled_actions_last_action_sensor
+    lambda: |-
+      return id(last_action_time);
+    update_interval: 30s
+
+# Scheduling engine - runs every minute to check for due actions
+interval:
+  - interval: 60s
+    then:
+      - lambda: |-
+          // Skip processing if halt_automations is active (if available)
+          #ifdef halt_automations
+          if (id(halt_automations)) {
+            ESP_LOGV("scheduled_actions", "Skipping action processing - automations halted");
+            return;
+          }
+          #endif
+
+          // Skip if already processing
+          if (id(queue_processing_active)) {
+            ESP_LOGV("scheduled_actions", "Skipping - already processing queue");
+            return;
+          }
+
+          id(queue_processing_active) = true;
+
+          ESP_LOGV("scheduled_actions", "Checking for due actions...");
+
+          // Get current time
+          auto current_time = id(sntp_time).now();
+          if (!current_time.is_valid()) {
+            ESP_LOGW("scheduled_actions", "Invalid time - skipping action check");
+            id(queue_processing_active) = false;
+            return;
+          }
+
+          // Format current time as UTC string for comparison
+          char current_time_str[32];
+          sprintf(current_time_str, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                  current_time.year, current_time.month, current_time.day_of_month,
+                  current_time.hour, current_time.minute, current_time.second);
+
+          ESP_LOGV("scheduled_actions", "Current time: %s", current_time_str);
+
+          // Parse the action queue
+          std::string queue_json = id(action_queue_storage);
+          if (queue_json == "[]" || queue_json.empty()) {
+            ESP_LOGV("scheduled_actions", "Queue is empty");
+            id(queue_processing_active) = false;
+            return;
+          }
+
+          StaticJsonDocument<2048> doc;
+          DeserializationError error = deserializeJson(doc, queue_json);
+          if (error) {
+            ESP_LOGW("scheduled_actions", "Failed to parse stored queue: %s", error.c_str());
+            id(queue_processing_active) = false;
+            return;
+          }
+
+          JsonArray actions = doc.as<JsonArray>();
+          bool queue_modified = false;
+          std::vector<JsonObject> remaining_actions;
+
+          // Check each action for execution
+          for (JsonObject action : actions) {
+            const char* action_id = action["id"];
+            const char* action_time_str = action["time"];
+            JsonObject action_data = action["action"];
+
+            if (!action_id || !action_time_str || !action_data) {
+              ESP_LOGW("scheduled_actions", "Skipping malformed action");
+              continue;
+            }
+
+            // Simple string comparison for time (works for ISO 8601 format)
+            // Action is due if scheduled time <= current time
+            if (strcmp(action_time_str, current_time_str) <= 0) {
+              ESP_LOGI("scheduled_actions", "Executing due action: %s at %s", action_id, action_time_str);
+
+              // Serialize action data for the script
+              std::string action_json_str;
+              serializeJson(action_data, action_json_str);
+
+              // Execute the action
+              auto call = id(execute_scheduled_action).make_call();
+              call.set_action_id(action_id);
+              call.set_action_json(action_json_str);
+              call.perform();
+
+              queue_modified = true;
+
+              // Check if this is a recurring action
+              if (action.containsKey("recurring")) {
+                JsonObject recurring = action["recurring"];
+                if (recurring.containsKey("type")) {
+                  std::string recur_type = recurring["type"].as<std::string>();
+
+                  if (recur_type == "daily") {
+                    // Calculate next day's execution time
+                    auto next_time = current_time;
+                    next_time.increment_day();
+
+                    // Check day filter if specified
+                    bool should_schedule = true;
+                    if (recurring.containsKey("days")) {
+                      JsonArray days = recurring["days"];
+                      const char* day_names[] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
+                      const char* next_day = day_names[next_time.day_of_week - 1];
+
+                      should_schedule = false;
+                      for (JsonVariant day : days) {
+                        if (strcmp(day.as<const char*>(), next_day) == 0) {
+                          should_schedule = true;
+                          break;
+                        }
+                      }
+                    }
+
+                    if (should_schedule) {
+                      // Create new action for next occurrence
+                      JsonObject new_action = doc.createNestedObject();
+                      new_action["id"] = std::string(action_id) + "_" + to_string(next_time.timestamp);
+
+                      // Format next execution time
+                      char next_time_str[32];
+                      sprintf(next_time_str, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                              next_time.year, next_time.month, next_time.day_of_month,
+                              current_time.hour, current_time.minute, current_time.second);
+                      new_action["time"] = next_time_str;
+                      new_action["action"] = action_data;
+                      new_action["recurring"] = recurring;
+
+                      remaining_actions.push_back(new_action);
+                      ESP_LOGD("scheduled_actions", "Scheduled next occurrence: %s", next_time_str);
+                    }
+                  }
+                }
+              }
+            } else {
+              // Action not yet due, keep it in the queue
+              remaining_actions.push_back(action);
+            }
+          }
+
+          // Update queue if actions were executed
+          if (queue_modified) {
+            // Rebuild the queue JSON
+            StaticJsonDocument<2048> new_doc;
+            JsonArray new_actions = new_doc.to<JsonArray>();
+
+            for (auto& remaining_action : remaining_actions) {
+              new_actions.add(remaining_action);
+            }
+
+            std::string new_queue_json;
+            serializeJson(new_doc, new_queue_json);
+
+            id(action_queue_storage) = new_queue_json;
+
+            ESP_LOGD("scheduled_actions", "Queue updated: %d actions remaining", (int)remaining_actions.size());
+          }
+
+          id(queue_processing_active) = false;
+
+# Script for executing actions (will be called by the scheduling engine)
+script:
+  - id: execute_scheduled_action
+    parameters:
+      action_id: string
+      action_json: string
+    then:
+      - lambda: |-
+          ESP_LOGI("scheduled_actions", "Executing action %s: %s", action_id.c_str(), action_json.c_str());
+
+          // Update last action time
+          auto current_time = id(sntp_time).now();
+          char time_str[32];
+          sprintf(time_str, "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                  current_time.year, current_time.month, current_time.day_of_month,
+                  current_time.hour, current_time.minute, current_time.second);
+          id(last_action_time) = time_str;
+
+          // Store action data in global variables for access by user automation
+          id(current_action_id) = action_id;
+          id(current_action_data) = action_json;
+
+          // Publish execution notification
+          std::string notification = "{\"action_id\":\"" + action_id + "\",\"executed_at\":\"" + time_str + "\"}";
+          id(mqtt_client).publish("${topic_prefix}/scheduled-actions/executed", notification);
+
+      # Trigger the user-defined action automation
+      - script.execute: scheduled_action_trigger
+
+  # This script will be called by the user's on_action configuration
+  - id: scheduled_action_trigger
+    then:
+      - lambda: |-
+          ESP_LOGD("scheduled_actions", "Action trigger script executed - user should override this");
+          // This script should be overridden by the user's on_action configuration
+          // The user can access:
+          // - id(current_action_id) for the action ID
+          // - id(current_action_data) for the JSON action data
