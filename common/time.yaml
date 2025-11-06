@@ -4,6 +4,4 @@ time:
     id: sntp_time
     timezone: "Europe/Madrid"
     servers:
-     - 148.251.5.46
-     - 193.149.0.217
-     - 185.198.109.227
+     - gateway.infra # Uses ntpd from my OPNSense router
