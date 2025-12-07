@@ -14,6 +14,23 @@ Welcome to my cozy smart home setup! 🌟 This repository contains all my ESPHom
 
 ## 🚀 Quick Start
 
+### Podman
+
+```bash
+podman create -it \ 
+  --name esphome-dev \
+  -p 6052:6052 \
+  --cap-add=NET_RAW \ # Allows the container to find devices using mDNS
+  -v $PWD:/workspace \
+  esphome-dev
+podman start esphome-dev
+podman exec -it esphome-dev bash
+```
+
+NOTE: We should also add the `--device \dev/ttyUSB0` to flash the firmware into a device. Seems that this feature doesn't work in MacOS but I need to try it. (See https://esphome.io/guides/getting_started_command_line/ for more info).  
+---
+
+
 ```bash
 # Compile a device
 esphome compile devices/llum-cuina.yaml

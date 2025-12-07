@@ -1,11 +1,10 @@
 substitutions:
   device_name: "llum-escala"
   friendly_name: "llum-escala"
-  static_ip: "10.0.20.33"
   topic_prefix: "llum_escala"
 
 packages:
-  shelly-plus-1: !include
+  hardware: !include
     file: ../hardware/shelly-plus-1.yaml
     vars:
       device_name: ${device_name}
@@ -14,13 +13,17 @@ packages:
   wifi: !include
     file: ../common/wifi.yaml
     vars:
-      static_ip: ${static_ip}
+      device_name: ${device_name}
 
-  debug: !include ../common/debug.yaml
+  mqtt: !include
+    file: ../common/mqtt.yaml
+    vars:
+      device_name: ${device_name}
+
+  logger: !include ../common/logger.yaml
   reset: !include ../common/reset.yaml
   time: !include ../common/time.yaml
   web-server: !include ../common/web-server.yaml
-  mqtt: !include ../common/mqtt.yaml
   sun: !include ../common/sun.yaml
 
 # Auto-off script to turn off the light after 5 minutes
